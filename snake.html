@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>סנייק</title>
+  <style>
+    :root {
+      --ink: #1c2430;
+      --muted: #5c6778;
+      --paper: #f6f3ee;
+      --card: #fffdf9;
+      --accent: #1f6f5b;
+      --line: #e4ddd3;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Segoe UI", "Arial Hebrew", Arial, sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 12% 8%, #efe6d6 0, transparent 36%),
+        radial-gradient(circle at 90% 90%, #dceee7 0, transparent 32%),
+        var(--paper);
+      display: grid;
+      place-items: center;
+      padding: 28px 16px;
+    }
+
+    .wrap {
+      width: min(640px, 100%);
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 1.8rem;
+    }
+
+    .score {
+      font-weight: 700;
+      color: var(--accent);
+      font-size: 1.15rem;
+    }
+
+    .board-shell {
+      position: relative;
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      padding: 16px;
+      box-shadow: 0 18px 50px rgba(40, 32, 20, 0.08);
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: auto;
+      border-radius: 16px;
+      background: #f3efe7;
+      touch-action: none;
+    }
+
+    .help {
+      margin: 14px 4px 0;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    .back {
+      color: var(--accent);
+      font-weight: 700;
+      text-decoration: none;
+    }
+
+    .overlay {
+      position: absolute;
+      inset: 16px;
+      border-radius: 16px;
+      background: rgba(255, 253, 249, 0.9);
+      display: grid;
+      place-items: center;
+      text-align: center;
+      padding: 24px;
+    }
+
+    .overlay[hidden] { display: none; }
+
+    .overlay h2 { margin: 0 0 8px; }
+
+    .overlay p { margin: 0 0 18px; color: var(--muted); }
+
+    button {
+      border: 0;
+      background: var(--accent);
+      color: #fff;
+      font: inherit;
+      font-weight: 700;
+      padding: 12px 22px;
+      border-radius: 999px;
+      cursor: pointer;
+    }
+
+    button:hover { background: #185a4a; }
+
+    .speeds {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 8px;
+      margin-bottom: 18px;
+    }
+
+    .speeds button {
+      background: #efe9de;
+      color: var(--muted);
+      font-size: 0.9rem;
+      padding: 8px 14px;
+    }
+
+    .speeds button:hover { background: #e4dccd; }
+
+    .speeds button.is-on {
+      background: var(--accent);
+      color: #fff;
+    }
+
+    .speeds button.is-on:hover { background: #185a4a; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>סנייק</h1>
+      <div class="score">ניקוד: <span id="score">0</span></div>
+    </header>
+    <div class="board-shell">
+      <canvas id="board" width="560" height="560"></canvas>
+      <div class="overlay" id="overlay" hidden>
+        <div>
+        <h2 id="overlay-title">סנייק</h2>
+        <p id="overlay-text">לחצו על חץ כדי להתחיל</p>
+        <div class="speeds" id="speeds" role="group" aria-label="מהירות המשחק">
+          <button type="button" class="speed" data-ms="230">איטי</button>
+          <button type="button" class="speed is-on" data-ms="160">רגיל</button>
+          <button type="button" class="speed" data-ms="110">מהיר</button>
+          <button type="button" class="speed" data-ms="70">מטורף</button>
+        </div>
+        <button type="button" id="again">התחל</button>
+        </div>
+      </div>
+    </div>
+    <p class="help">מזיזים עם החצים. אוכלים שטרות של 200. מדי 2–8 שטרות מופיע שטר זהוב ששווה 3,600 — אבל כל שנייה הוא שווה 600 פחות, ואחרי 6 שניות הוא נעלם. הקירות לא הורגים — יוצאים מצד אחד ונכנסים מהצד השני, ונפסלים רק כשנתקלים בעצמכם. <a class="back" href="index.html">חזרה לכניסה</a></p>
+  </div>
+  <script>
+    /* סנייק - נחש על לוח 10x10. reset, spawnFood, setDir, update, draw, loop, begin. */
+    const COLS = 10;
+    const ROWS = 10;
+    const canvas = document.getElementById("board");
+    const ctx = canvas.getContext("2d");
+    const cell = canvas.width / COLS;
+    const scoreEl = document.getElementById("score");
+    const overlay = document.getElementById("overlay");
+    const overlayTitle = document.getElementById("overlay-title");
+    const overlayText = document.getElementById("overlay-text");
+    const againBtn = document.getElementById("again");
+    const speedBtns = document.querySelectorAll(".speed");
+    let speedMs = 160;
+
+    // צליל "קאצ'ינג" קצר בכל אכילת שטר — מסונתז ב־WebAudio, בלי קובץ סאונד
+    let audioCtx = null;
+    let noiseBuffer = null;
+
+    function ensureAudio() {
+      if (!audioCtx) {
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (!AC) return null;
+        audioCtx = new AC();
+      }
+      if (audioCtx.state === "suspended") audioCtx.resume();
+      return audioCtx;
+    }
+
+    function getNoise(ac) {
+      if (noiseBuffer) return noiseBuffer;
+      const length = Math.floor(ac.sampleRate * 0.2);
+      noiseBuffer = ac.createBuffer(1, length, ac.sampleRate);
+      const data = noiseBuffer.getChannelData(0);
+      for (let i = 0; i < length; i++) {
+        data[i] = (Math.random() * 2 - 1) * (1 - i / length);
+      }
+      return noiseBuffer;
+    }
+
+    function playCash(bonus) {
+      const ac = ensureAudio();
+      if (!ac) return;
+      const t0 = ac.currentTime;
+
+      // רשרוש השטר
+      const rustle = ac.createBufferSource();
+      rustle.buffer = getNoise(ac);
+      const band = ac.createBiquadFilter();
+      band.type = "bandpass";
+      band.frequency.value = 2600;
+      band.Q.value = 0.7;
+      const rustleGain = ac.createGain();
+      rustleGain.gain.setValueAtTime(0.0001, t0);
+      rustleGain.gain.exponentialRampToValueAtTime(0.28, t0 + 0.012);
+      rustleGain.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.17);
+      rustle.connect(band).connect(rustleGain).connect(ac.destination);
+      rustle.start(t0);
+      rustle.stop(t0 + 0.18);
+
+      // צלצול מטבעות מעל הרשרוש (לשטר הזהוב יש צליל גבוה נוסף)
+      const notes = bonus ? [1318.5, 1975.5, 2637] : [1318.5, 1975.5];
+      notes.forEach((freq, i) => {
+        const at = t0 + i * 0.055;
+        const osc = ac.createOscillator();
+        const gain = ac.createGain();
+        osc.type = "triangle";
+        osc.frequency.setValueAtTime(freq, at);
+        gain.gain.setValueAtTime(0.0001, at);
+        gain.gain.exponentialRampToValueAtTime(bonus ? 0.14 : 0.11, at + 0.01);
+        gain.gain.exponentialRampToValueAtTime(0.0001, at + 0.3);
+        osc.connect(gain).connect(ac.destination);
+        osc.start(at);
+        osc.stop(at + 0.32);
+      });
+    }
+
+    const face = new Image();
+    face.src = "assets/face.png?v=2";
+    const billFront = new Image();
+    billFront.src = "assets/bill-200-front.webp";
+    const billBack = new Image();
+    billBack.src = "assets/bill-200-back.webp";
+    const billGold = new Image();
+    billGold.src = "assets/bill-200-gold.webp?v=1";
+
+    // שטר זהוב: מתחיל מ־3,600, כל שנייה יורד 600, ונעלם אחרי 6 שניות
+    const GOLD_START = 3600;
+    const GOLD_STEP = 600;
+    const GOLD_SECONDS = 6;
+
+    let snake, dir, nextDir, food, score, timer, alive, started;
+    let billSide = 0;
+    let gold = null;
+    let goldTick = null;
+    let eatenSinceGold = 0;
+    let nextGoldAt = 2 + Math.floor(Math.random() * 7);
+
+    function showStart() {
+      overlayTitle.textContent = "סנייק";
+      overlayText.textContent = "לחצו על חץ כדי להתחיל";
+      againBtn.textContent = "התחל";
+      overlay.hidden = false;
+    }
+
+    function reset() {
+      snake = [
+        { x: 5, y: 5 },
+        { x: 4, y: 5 },
+        { x: 3, y: 5 }
+      ];
+      dir = { x: 1, y: 0 };
+      nextDir = { x: 1, y: 0 };
+      headAngle = headTargetAngle();
+      score = 0;
+      alive = true;
+      started = false;
+      billSide = 0;
+      endGold();
+      eatenSinceGold = 0;
+      nextGoldAt = 2 + Math.floor(Math.random() * 7);
+      scoreEl.textContent = "0";
+      clearInterval(timer);
+      placeFood();
+      showStart();
+      draw();
+    }
+
+    function begin() {
+      if (started || !alive) return;
+      started = true;
+      ensureAudio();
+      overlay.hidden = true;
+      clearInterval(timer);
+      timer = setInterval(step, speedMs);
+    }
+
+    function placeFood() {
+      do {
+        food = {
+          x: Math.floor(Math.random() * COLS),
+          y: Math.floor(Math.random() * ROWS)
+        };
+      } while (
+        snake.some(part => part.x === food.x && part.y === food.y) ||
+        (gold && gold.x === food.x && gold.y === food.y)
+      );
+    }
+
+    function goldValue() {
+      if (!gold) return 0;
+      const seconds = Math.floor((performance.now() - gold.spawnedAt) / 1000);
+      return Math.max(0, GOLD_START - GOLD_STEP * seconds);
+    }
+
+    function endGold() {
+      gold = null;
+      clearInterval(goldTick);
+      goldTick = null;
+    }
+
+    function spawnGold() {
+      if (gold) return;
+      let spot;
+      do {
+        spot = {
+          x: Math.floor(Math.random() * COLS),
+          y: Math.floor(Math.random() * ROWS)
+        };
+      } while (
+        snake.some(part => part.x === spot.x && part.y === spot.y) ||
+        (food && food.x === spot.x && food.y === spot.y)
+      );
+
+      gold = { x: spot.x, y: spot.y, spawnedAt: performance.now() };
+      eatenSinceGold = 0;
+      nextGoldAt = 2 + Math.floor(Math.random() * 7);
+
+      clearInterval(goldTick);
+      goldTick = setInterval(() => {
+        if (!gold) return;
+        if (performance.now() - gold.spawnedAt >= GOLD_SECONDS * 1000) endGold();
+        draw();
+      }, 250);
+    }
+
+    function setDir(x, y) {
+      if (!alive) return;
+      if (x === -dir.x && y === -dir.y) return;
+      nextDir = { x, y };
+      if (!started) {
+        dir = nextDir;
+        begin();
+      }
+    }
+
+    function step() {
+      if (!alive) return;
+      dir = nextDir;
+      // יציאה מהלוח בצד אחד והמשך מהצד השני
+      const head = {
+        x: (snake[0].x + dir.x + COLS) % COLS,
+        y: (snake[0].y + dir.y + ROWS) % ROWS
+      };
+      const eats = head.x === food.x && head.y === food.y;
+      const eatsGold = gold !== null && head.x === gold.x && head.y === gold.y;
+      // הזנב מתפנה באותה תנועה, ולכן מותר להיכנס לתא שלו כשלא אוכלים
+      const body = (eats || eatsGold) ? snake : snake.slice(0, -1);
+
+      if (body.some(part => part.x === head.x && part.y === head.y)) {
+        alive = false;
+        started = false;
+        clearInterval(timer);
+        endGold();
+        overlayTitle.textContent = "נתקעת";
+        overlayText.textContent = "הניקוד שלך: " + score;
+        againBtn.textContent = "שחק שוב";
+        overlay.hidden = false;
+        draw();
+        return;
+      }
+
+      snake.unshift(head);
+      if (eats) {
+        score += 200;
+        scoreEl.textContent = String(score);
+        playCash(false);
+        billSide = (billSide + 1) % 2;
+        placeFood();
+        // כל 2–8 שטרות רגילים מופיע שטר זהוב נוסף
+        eatenSinceGold++;
+        if (!gold && eatenSinceGold >= nextGoldAt) spawnGold();
+      }
+      if (eatsGold) {
+        score += goldValue();
+        scoreEl.textContent = String(score);
+        playCash(true);
+        endGold();
+      }
+      if (!eats && !eatsGold) {
+        snake.pop();
+      }
+      draw();
+    }
+
+    function roundRect(x, y, w, h, r) {
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.arcTo(x + w, y, x + w, y + h, r);
+      ctx.arcTo(x + w, y + h, x, y + h, r);
+      ctx.arcTo(x, y + h, x, y, r);
+      ctx.arcTo(x, y, x + w, y, r);
+      ctx.closePath();
+    }
+
+    function drawBill(x, y) {
+      const img = billSide === 0 ? billFront : billBack;
+      const w = cell * 0.86;
+      const h = w * 0.57;
+      ctx.save();
+      ctx.translate(x + cell / 2, y + cell / 2);
+      ctx.rotate(-0.18);
+      if (img.complete && img.naturalWidth) {
+        roundRect(-w / 2, -h / 2, w, h, cell * 0.06);
+        ctx.save();
+        ctx.clip();
+        ctx.drawImage(img, -w / 2, -h / 2, w, h);
+        ctx.restore();
+      } else {
+        roundRect(-w / 2, -h / 2, w, h, cell * 0.06);
+        ctx.fillStyle = "#2f7fb5";
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+
+    function drawGold(x, y) {
+      if (!gold) return;
+      const now = performance.now();
+      const left = Math.max(0, 1 - (now - gold.spawnedAt) / (GOLD_SECONDS * 1000));
+      const value = goldValue();
+      const pulse = 1 + Math.sin(now / 170) * 0.045;
+      const w = cell * 0.9 * pulse;
+      const h = w * 0.57;
+      const cx = x + cell / 2;
+      const cy = y + cell / 2;
+
+      // הילה זהובה
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.rotate(-0.18);
+      ctx.shadowColor = "rgba(226, 163, 34, 0.9)";
+      ctx.shadowBlur = cell * 0.4;
+      if (billGold.complete && billGold.naturalWidth) {
+        roundRect(-w / 2, -h / 2, w, h, cell * 0.06);
+        ctx.save();
+        ctx.clip();
+        ctx.drawImage(billGold, -w / 2, -h / 2, w, h);
+        ctx.restore();
+      } else {
+        roundRect(-w / 2, -h / 2, w, h, cell * 0.06);
+        ctx.fillStyle = "#d9a12a";
+        ctx.fill();
+      }
+      ctx.restore();
+
+      // ערך נוכחי
+      ctx.font = "bold " + Math.round(cell * 0.21) + "px Segoe UI, Arial";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillStyle = "#8a5a00";
+      ctx.fillText(value.toLocaleString("en-US"), cx, y + cell * 0.1);
+
+      // פס זמן
+      const barW = cell * 0.74;
+      const barH = Math.max(3, cell * 0.075);
+      const bx = x + (cell - barW) / 2;
+      const by = y + cell - barH - cell * 0.09;
+      ctx.fillStyle = "rgba(90, 58, 5, 0.18)";
+      roundRect(bx, by, barW, barH, barH);
+      ctx.fill();
+      ctx.fillStyle = "#b8791a";
+      roundRect(bx, by, barW * left, barH, barH);
+      ctx.fill();
+    }
+
+    function segX(part) { return part.x * cell + cell / 2; }
+    function segY(part) { return part.y * cell + cell / 2; }
+
+    // הגוף נמשך כקו אחד רציף מהראש עד הזנב, כך שכל החוליות מחוברות זו לזו.
+    // בחציה של הלוח הקו נשבר כדי לא למתוח קו לרוחב כל המסך.
+    function traceBody() {
+      ctx.beginPath();
+      let open = false;
+      for (let i = 0; i < snake.length; i++) {
+        const part = snake[i];
+        const prev = i > 0 ? snake[i - 1] : null;
+        const jump = prev && (Math.abs(part.x - prev.x) > 1 || Math.abs(part.y - prev.y) > 1);
+        if (!open || jump) ctx.moveTo(segX(part), segY(part));
+        else ctx.lineTo(segX(part), segY(part));
+        open = true;
+      }
+    }
+
+    function drawBody() {
+      if (snake.length < 1) return;
+      const width = cell * 0.78;
+      ctx.lineJoin = "round";
+      ctx.lineCap = "round";
+      ctx.strokeStyle = "#1f6f5b";
+      ctx.lineWidth = width;
+      traceBody();
+      ctx.stroke();
+      // פס בהיר לאורך הגוף — נותן תחושת קשקשים במקום קוביות נפרדות
+      ctx.strokeStyle = "#2f8f74";
+      ctx.lineWidth = width * 0.56;
+      traceBody();
+      ctx.stroke();
+    }
+
+    // הראש מסתובב יחד עם הנחש: הזווית מחושבת מכיוון התנועה ומוחלקת בכל פריים
+    let headAngle = 0;
+
+    function headTargetAngle() {
+      return Math.atan2(dir.x, -dir.y);
+    }
+
+    function drawHead(part) {
+      const cx = segX(part);
+      const cy = segY(part);
+
+      ctx.save();
+      ctx.translate(cx, cy);
+      ctx.rotate(headAngle);
+
+      if (face.complete && face.naturalWidth) {
+        // הפנים נחתכו מהתמונה עם רקע שקוף, ולכן מציירים אותן כמו שהן —
+        // בלי עיגול ובלי מסכה.
+        const h = cell * 1.18;
+        const w = h * (face.naturalWidth / face.naturalHeight);
+        ctx.drawImage(face, -w / 2, -h / 2, w, h);
+      } else {
+        ctx.beginPath();
+        ctx.arc(0, 0, cell / 2 - 1, 0, Math.PI * 2);
+        ctx.fillStyle = "#c5d7e6";
+        ctx.fill();
+      }
+
+      ctx.restore();
+    }
+
+    // הזווית מתקרבת בעדינות לכיוון התנועה בכל ציור, וב־requestAnimationFrame
+    // הציור עצמו רץ כל פריים — כך הסיבוב נראה רציף ולא מדלג.
+    function easeHeadAngle() {
+      const target = headTargetAngle();
+      const diff = ((target - headAngle + Math.PI * 3) % (Math.PI * 2)) - Math.PI;
+      if (Math.abs(diff) < 0.002) headAngle = target;
+      else headAngle += diff * 0.22;
+    }
+
+    function animate() {
+      draw();
+      requestAnimationFrame(animate);
+    }
+
+    function draw() {
+      easeHeadAngle();
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      for (let y = 0; y < ROWS; y++) {
+        for (let x = 0; x < COLS; x++) {
+          ctx.fillStyle = (x + y) % 2 === 0 ? "#f7f3ec" : "#efe8dc";
+          ctx.fillRect(x * cell, y * cell, cell, cell);
+        }
+      }
+
+      drawBill(food.x * cell, food.y * cell);
+      if (gold) drawGold(gold.x * cell, gold.y * cell);
+
+      drawBody();
+      drawHead(snake[0]);
+    }
+
+    document.addEventListener("keydown", event => {
+      const keys = {
+        ArrowUp: [0, -1],
+        ArrowDown: [0, 1],
+        ArrowLeft: [-1, 0],
+        ArrowRight: [1, 0],
+        w: [0, -1],
+        s: [0, 1],
+        a: [-1, 0],
+        d: [1, 0]
+      };
+      const next = keys[event.key];
+      if (!next) return;
+      event.preventDefault();
+      setDir(next[0], next[1]);
+    });
+
+    let touchStart = null;
+    canvas.addEventListener("touchstart", event => {
+      const t = event.changedTouches[0];
+      touchStart = { x: t.clientX, y: t.clientY };
+    }, { passive: true });
+
+    canvas.addEventListener("touchend", event => {
+      if (!touchStart) return;
+      const t = event.changedTouches[0];
+      const dx = t.clientX - touchStart.x;
+      const dy = t.clientY - touchStart.y;
+      if (Math.abs(dx) < 20 && Math.abs(dy) < 20) return;
+      if (Math.abs(dx) > Math.abs(dy)) setDir(dx > 0 ? 1 : -1, 0);
+      else setDir(0, dy > 0 ? 1 : -1);
+    }, { passive: true });
+
+    speedBtns.forEach(btn => {
+      btn.addEventListener("click", () => {
+        speedMs = Number(btn.dataset.ms);
+        speedBtns.forEach(other => other.classList.toggle("is-on", other === btn));
+        if (started && alive) {
+          clearInterval(timer);
+          timer = setInterval(step, speedMs);
+        }
+      });
+    });
+
+    againBtn.addEventListener("click", () => {
+      if (alive && !started) begin();
+      else reset();
+    });
+    face.addEventListener("load", draw);
+    billFront.addEventListener("load", draw);
+    billBack.addEventListener("load", draw);
+    reset();
+    requestAnimationFrame(animate);
+  </script>
+</body>
+</html>

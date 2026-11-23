@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>דודלג'אמפ</title>
+  <style>
+    :root {
+      --ink: #1c2430;
+      --muted: #5c6778;
+      --paper: #f6f3ee;
+      --card: #fffdf9;
+      --accent: #1f6f5b;
+      --line: #e4ddd3;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Segoe UI", "Arial Hebrew", Arial, sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 12% 8%, #efe6d6 0, transparent 36%),
+        radial-gradient(circle at 90% 90%, #dceee7 0, transparent 32%),
+        var(--paper);
+      display: grid;
+      place-items: center;
+      padding: 28px 16px;
+    }
+
+    .wrap {
+      width: min(460px, 100%);
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 16px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 1.8rem;
+    }
+
+    .score {
+      font-weight: 700;
+      color: var(--accent);
+      font-size: 1.15rem;
+    }
+
+    .board-shell {
+      position: relative;
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      padding: 16px;
+      box-shadow: 0 18px 50px rgba(40, 32, 20, 0.08);
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: auto;
+      border-radius: 16px;
+      background: #f3efe7;
+      touch-action: none;
+    }
+
+    .help {
+      margin: 14px 4px 0;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    .back {
+      color: var(--accent);
+      font-weight: 700;
+      text-decoration: none;
+    }
+
+    .overlay {
+      position: absolute;
+      inset: 16px;
+      border-radius: 16px;
+      background: rgba(255, 253, 249, 0.9);
+      display: grid;
+      place-items: center;
+      text-align: center;
+      padding: 24px;
+    }
+
+    .overlay[hidden] { display: none; }
+
+    .overlay h2 { margin: 0 0 8px; }
+
+    .overlay p { margin: 0 0 18px; color: var(--muted); }
+
+    button {
+      border: 0;
+      background: var(--accent);
+      color: #fff;
+      font: inherit;
+      font-weight: 700;
+      padding: 12px 22px;
+      border-radius: 999px;
+      cursor: pointer;
+    }
+
+    button:hover { background: #185a4a; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>דודלג'אמפ</h1>
+      <div class="score">גובה: <span id="score">0</span></div>
+    </header>
+    <div class="board-shell">
+      <canvas id="game" width="400" height="600"></canvas>
+      <div class="overlay" id="overlay">
+        <div>
+          <h2 id="overlay-title">דודלג'אמפ</h2>
+          <p id="overlay-text">האיש קופץ לבד — אתם רק מזיזים אותו</p>
+          <button type="button" id="start">התחל</button>
+        </div>
+      </div>
+    </div>
+    <p class="help">מזיזים עם החצים (או גוררים אצבע במסך). הוא קופץ לבד מהפלטפורמות, עובר מצד לצד בלי ליפול, ומטפס גבוה ככל שאפשר. המשטחים החומים מתפוררים ברגע שדורכים עליהם פעם אחת, וכל מה שמטפסים גבוה יותר הפערים מתרחבים, המשטחים מתקצרים ומתפוררים יותר. בדרך יש קפיצים אדומים שמקפיצים גבוה במיוחד, טילים שמעיפים אתכם לשמיים, ומפלצות ירוקות שמסתובבות באוויר — דריכה על הראש שלהן מוחצת אותן, נגיעה מהצד מסיימת את המשחק. <a class="back" href="index.html">חזרה לכניסה</a></p>
+  </div>
+  <script>
+    /*
+     * דודלג'אמפ - טיפוס אינסופי עם משטחים, קפיצים, טילים ומפלצות.
+     * מבנה: addPlatform, fillUpwards, reset, begin, gameOver, update, draw, loop.
+     */
+    const canvas = document.getElementById("game");
+    const ctx = canvas.getContext("2d");
+    const W = canvas.width;
+    const H = canvas.height;
+    const scoreEl = document.getElementById("score");
+    const overlay = document.getElementById("overlay");
+    const overlayTitle = document.getElementById("overlay-title");
+    const overlayText = document.getElementById("overlay-text");
+    const startBtn = document.getElementById("start");
+
+    const GRAVITY = 0.52;
+    const JUMP = -13;
+    const SPRING_JUMP = -21;
+    const ROCKET_VY = -17.5;
+    const ROCKET_TIME = 96;
+    const MOVE = 6.4;
+    const P_W = 46;
+    const P_H = 50;
+    const PLAT_W = 76;
+    const PLAT_H = 14;
+    const CAM_LINE = 0.42;
+
+    const face = new Image();
+    face.src = "assets/face.png?v=3";
+
+    let player, platforms, rockets, monsters, score, alive, started, cameraY, highestPlatY;
+    let raf = 0, lastTime = 0;
+    let keyLeft = false, keyRight = false, pointerDir = 0;
+
+    function roundRect(x, y, w, h, r) {
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.arcTo(x + w, y, x + w, y + h, r);
+      ctx.arcTo(x + w, y + h, x, y + h, r);
+      ctx.arcTo(x, y + h, x, y, r);
+      ctx.arcTo(x, y, x + w, y, r);
+      ctx.closePath();
+    }
+
+    function gapSize() {
+      // ככל שמטפסים גבוה יותר הפערים מתרחבים
+      return 62 + Math.random() * 43 + Math.min(30, score * 0.06);
+    }
+
+    function addPlatform(y) {
+      const movingChance = Math.min(0.38, 0.08 + score / 3000);
+      // משטחים שבירים מתחילים להופיע אחרי שמטפסים קצת, ותכופות יותר ככל שעולים
+      const fragileChance = score < 60 ? 0 : Math.min(0.42, (score - 60) / 700);
+      const fragile = Math.random() < fragileChance;
+      const moving = !fragile && Math.random() < movingChance;
+      const shrink = Math.min(16, score * 0.03);
+      const w = (moving ? PLAT_W - 8 : PLAT_W) - shrink;
+      const x = 12 + Math.random() * (W - 24 - w);
+      // קפיץ יושב על המשטח ומקפיץ גבוה בהרבה
+      const spring = !fragile && Math.random() < (score < 40 ? 0 : 0.13);
+      platforms.push({
+        x,
+        y,
+        w,
+        dir: moving ? (Math.random() < 0.5 ? -1 : 1) : 0,
+        speed: moving ? 0.9 + Math.random() * 0.9 : 0,
+        fragile,
+        spring,
+        bounceAt: 0,
+        hitAt: 0
+      });
+      // טיל שמתרומם איתו גבוה מאוד
+      if (score > 120 && Math.random() < 0.055) {
+        rockets.push({
+          x: 30 + Math.random() * (W - 60),
+          y: y - 96 - Math.random() * 40,
+          taken: false
+        });
+      }
+      // מפלצות שמסתובבות באוויר
+      if (score > 240 && Math.random() < Math.min(0.3, 0.08 + score / 4000)) {
+        monsters.push({
+          x: 24 + Math.random() * (W - 76),
+          y: y - 76,
+          w: 46,
+          h: 38,
+          vx: (Math.random() < 0.5 ? -1 : 1) * (0.7 + Math.random() * 0.9),
+          phase: Math.random() * 6,
+          squashedAt: 0
+        });
+      }
+    }
+
+    function fillUpwards() {
+      while (highestPlatY > cameraY - 150) {
+        highestPlatY -= gapSize();
+        addPlatform(highestPlatY);
+      }
+    }
+
+    function showStart() {
+      overlayTitle.textContent = "דודלג'אמפ";
+      overlayText.textContent = "האיש קופץ לבד — אתם רק מזיזים אותו";
+      startBtn.textContent = "התחל";
+      overlay.hidden = false;
+    }
+
+    function reset() {
+      player = { x: W / 2, y: H - 150, vy: 0, rocket: 0 };
+      platforms = [];
+      rockets = [];
+      monsters = [];
+      cameraY = 0;
+      score = 0;
+      alive = true;
+      started = false;
+      scoreEl.textContent = "0";
+      highestPlatY = H - 70;
+      platforms.push({ x: W / 2 - PLAT_W / 2, y: highestPlatY, w: PLAT_W, dir: 0, speed: 0, fragile: false, spring: false, bounceAt: 0, hitAt: 0 });
+      fillUpwards();
+      showStart();
+      draw();
+    }
+
+    function begin() {
+      if (started || !alive) return;
+      started = true;
+      lastTime = 0;
+      overlay.hidden = true;
+    }
+
+    function gameOver() {
+      alive = false;
+      started = false;
+      overlayTitle.textContent = "נפלת";
+      overlayText.textContent = "הגובה שלך: " + score;
+      startBtn.textContent = "שחק שוב";
+      overlay.hidden = false;
+    }
+
+    function update(dt) {
+      const dir = Math.max(-1, Math.min(1, (keyRight ? 1 : 0) - (keyLeft ? 1 : 0) + pointerDir));
+      player.x += dir * MOVE * dt;
+
+      const half = P_W / 2;
+      if (player.x < -half) player.x = W + half;
+      if (player.x > W + half) player.x = -half;
+
+      const prevBottom = player.y + P_H / 2;
+      if (player.rocket > 0) {
+        // בזמן הטיל הגרביטציה מבוטלת והאיש עולה מהר
+        player.rocket -= dt;
+        player.vy = ROCKET_VY;
+        player.y += player.vy * dt;
+        if (player.rocket <= 0) player.vy = JUMP * 0.5;
+      } else {
+        player.vy += GRAVITY * dt;
+        player.y += player.vy * dt;
+      }
+      const bottom = player.y + P_H / 2;
+
+      for (const r of rockets) {
+        if (r.taken) continue;
+        if (Math.abs(player.x - r.x) < P_W * 0.55 && Math.abs(player.y - r.y) < P_H * 0.7) {
+          r.taken = true;
+          player.rocket = ROCKET_TIME;
+          player.vy = ROCKET_VY;
+        }
+      }
+
+      // תנועת המפלצות תמיד (גם בזמן טיל), כדי שלא "יקפאו" באוויר
+      for (const m of monsters) {
+        if (m.squashedAt) continue;
+        m.phase += dt;
+        m.x += m.vx * dt;
+        if (m.x < 14) { m.x = 14; m.vx = Math.abs(m.vx); }
+        if (m.x + m.w > W - 14) { m.x = W - 14 - m.w; m.vx = -Math.abs(m.vx); }
+      }
+      // בדיקת התנגשות רק כשאין טיל (בזמן טיל השחקן חסין)
+      if (player.rocket <= 0) {
+        for (const m of monsters) {
+          if (m.squashedAt) continue;
+          const my = m.y + Math.sin(m.phase * 0.12) * 10;
+          const hitX = Math.abs(player.x - (m.x + m.w / 2)) < P_W * 0.42 + m.w * 0.4;
+          const hitY = Math.abs(player.y - (my + m.h / 2)) < P_H * 0.42 + m.h * 0.4;
+          if (hitX && hitY) {
+            if (player.vy > 0 && player.y < my + m.h * 0.45) {
+              // קפיצה על הראש מוחצת את המפלצת
+              m.squashedAt = performance.now();
+              player.vy = JUMP * 0.9;
+            } else {
+              gameOver();
+              return;
+            }
+          }
+        }
+      }
+
+      for (const p of platforms) {
+        if (p.dir) {
+          p.x += p.dir * p.speed * dt;
+          if (p.x < 6) { p.x = 6; p.dir = 1; }
+          if (p.x + p.w > W - 6) { p.x = W - 6 - p.w; p.dir = -1; }
+        }
+      }
+
+      if (player.vy > 0) {
+        for (const p of platforms) {
+          // משטח שביר שכבר נדרכו עליו מתפרק ולא נותן קפיצה נוספת
+          if (p.fragile && p.hitAt) continue;
+          const top = p.y;
+          if (prevBottom <= top + 2 && bottom >= top && bottom <= top + PLAT_H + 10) {
+            const overlaps = player.x + half * 0.6 > p.x && player.x - half * 0.6 < p.x + p.w;
+            if (overlaps) {
+              player.y = top - P_H / 2;
+              player.vy = p.spring ? SPRING_JUMP : JUMP;
+              if (p.spring) p.bounceAt = performance.now();
+              if (p.fragile) p.hitAt = performance.now();
+              break;
+            }
+          }
+        }
+      }
+
+      const camLine = cameraY + H * CAM_LINE;
+      if (player.y < camLine) cameraY = player.y - H * CAM_LINE;
+
+      const climbed = Math.max(0, Math.floor((H - 150 - player.y) / 10));
+      if (climbed > score) {
+        score = climbed;
+        scoreEl.textContent = String(score);
+      }
+
+      if (player.y - P_H / 2 > cameraY + H + 40) {
+        gameOver();
+        return;
+      }
+
+      const now = performance.now();
+      platforms = platforms.filter(p =>
+        p.y < cameraY + H + 240 && !(p.fragile && p.hitAt && now - p.hitAt > 400)
+      );
+      rockets = rockets.filter(r => !r.taken && r.y < cameraY + H + 240);
+      monsters = monsters.filter(m =>
+        m.y < cameraY + H + 240 && !(m.squashedAt && now - m.squashedAt > 300)
+      );
+      fillUpwards();
+    }
+
+    function drawPlank(p, x, y) {
+      ctx.fillStyle = p.fragile ? "#b5764a" : (p.dir ? "#2f8f74" : "#1f6f5b");
+      roundRect(x, y, p.w, PLAT_H, 7);
+      ctx.fill();
+      ctx.fillStyle = "rgba(255, 255, 255, 0.32)";
+      roundRect(x + 7, y + 3, p.w - 14, 3, 2);
+      ctx.fill();
+      if (p.spring) {
+        // קפיץ מתכווץ ברגע שדורכים עליו
+        const squash = p.bounceAt ? Math.max(0, 1 - (performance.now() - p.bounceAt) / 260) : 0;
+        const sh = 15 - squash * 11;
+        const sx = x + p.w / 2;
+        ctx.strokeStyle = "#8b8477";
+        ctx.lineWidth = 3;
+        ctx.lineCap = "round";
+        ctx.beginPath();
+        for (let i = 0; i <= 3; i++) {
+          const yy = y - (sh / 3) * i;
+          ctx.moveTo(sx - 8, yy);
+          ctx.lineTo(sx + 8, yy - sh / 6);
+        }
+        ctx.stroke();
+        ctx.fillStyle = "#c94a3e";
+        roundRect(sx - 10, y - sh - 5, 20, 5, 2);
+        ctx.fill();
+      }
+      if (p.fragile) {
+        // סדקים — רואים מראש שהמשטח עומד להתפרק
+        ctx.strokeStyle = "rgba(74, 41, 17, 0.5)";
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.moveTo(x + p.w * 0.34, y + 2);
+        ctx.lineTo(x + p.w * 0.43, y + PLAT_H - 2);
+        ctx.moveTo(x + p.w * 0.68, y + 2);
+        ctx.lineTo(x + p.w * 0.59, y + PLAT_H - 2);
+        ctx.stroke();
+      }
+    }
+
+    function drawRocket(r) {
+      ctx.save();
+      ctx.translate(r.x, r.y);
+      // כנפיים
+      ctx.fillStyle = "#8f3a31";
+      ctx.beginPath(); ctx.moveTo(-9, 6); ctx.lineTo(-17, 20); ctx.lineTo(-9, 20); ctx.closePath(); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(9, 6); ctx.lineTo(17, 20); ctx.lineTo(9, 20); ctx.closePath(); ctx.fill();
+      // גוף
+      ctx.fillStyle = "#c94a3e";
+      roundRect(-9, -16, 18, 34, 8);
+      ctx.fill();
+      // חרטום
+      ctx.beginPath();
+      ctx.moveTo(0, -30);
+      ctx.lineTo(9, -15);
+      ctx.lineTo(-9, -15);
+      ctx.closePath();
+      ctx.fillStyle = "#efe6d6";
+      ctx.fill();
+      // חלון
+      ctx.beginPath();
+      ctx.arc(0, -6, 5, 0, Math.PI * 2);
+      ctx.fillStyle = "#9fd6e8";
+      ctx.fill();
+      // להבה
+      ctx.fillStyle = "#f2b13c";
+      ctx.beginPath();
+      ctx.moveTo(-6, 17);
+      ctx.lineTo(0, 28 + Math.random() * 9);
+      ctx.lineTo(6, 17);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    }
+
+    function drawMonster(m, my) {
+      const squash = m.squashedAt ? Math.min(1, (performance.now() - m.squashedAt) / 300) : 0;
+      const cx = m.x + m.w / 2;
+      const cy = my + m.h / 2 + squash * 8;
+      ctx.save();
+      ctx.globalAlpha = 1 - squash * 0.7;
+      ctx.translate(cx, cy);
+      ctx.scale(1 + squash * 0.3, 1 - squash * 0.6);
+      // גוף
+      ctx.beginPath();
+      ctx.ellipse(0, 0, m.w / 2, m.h / 2, 0, 0, Math.PI * 2);
+      ctx.fillStyle = "#6b8f3f";
+      ctx.fill();
+      // קוצים
+      ctx.fillStyle = "#557630";
+      for (let i = -2; i <= 2; i++) {
+        ctx.beginPath();
+        ctx.moveTo(i * 9 - 4, -m.h / 2 + 3);
+        ctx.lineTo(i * 9, -m.h / 2 - 8);
+        ctx.lineTo(i * 9 + 4, -m.h / 2 + 3);
+        ctx.closePath();
+        ctx.fill();
+      }
+      // עיניים
+      ctx.fillStyle = "#fffdf9";
+      ctx.beginPath(); ctx.arc(-8, -4, 6, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(8, -4, 6, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = "#1c2430";
+      const look = m.vx > 0 ? 2 : -2;
+      ctx.beginPath(); ctx.arc(-8 + look, -4, 2.6, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(8 + look, -4, 2.6, 0, Math.PI * 2); ctx.fill();
+      // פה עם שיניים
+      ctx.fillStyle = "#3b2a1c";
+      roundRect(-11, 7, 22, 7, 3);
+      ctx.fill();
+      ctx.fillStyle = "#fffdf9";
+      for (let i = 0; i < 4; i++) {
+        ctx.beginPath();
+        ctx.moveTo(-10 + i * 5.5, 7);
+        ctx.lineTo(-7.2 + i * 5.5, 7);
+        ctx.lineTo(-8.6 + i * 5.5, 12);
+        ctx.closePath();
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+
+    function draw() {
+      const bg = ctx.createLinearGradient(0, 0, 0, H);
+      bg.addColorStop(0, "#fbf8f2");
+      bg.addColorStop(1, "#ece2d1");
+      ctx.fillStyle = bg;
+      ctx.fillRect(0, 0, W, H);
+
+      ctx.save();
+      ctx.translate(0, -cameraY);
+
+      for (const p of platforms) {
+        if (p.y + PLAT_H < cameraY - 40 || p.y > cameraY + H + 40) continue;
+        if (p.fragile && p.hitAt) {
+          // מתפורר: נופל, מסתובב ודוהה
+          const age = Math.min(1, (performance.now() - p.hitAt) / 400);
+          ctx.save();
+          ctx.globalAlpha = 1 - age;
+          ctx.translate(p.x + p.w / 2, p.y + PLAT_H / 2 + age * 34);
+          ctx.rotate(age * 0.45);
+          drawPlank(p, -p.w / 2, -PLAT_H / 2);
+          ctx.restore();
+        } else {
+          drawPlank(p, p.x, p.y);
+        }
+      }
+
+      for (const r of rockets) {
+        if (r.y < cameraY - 60 || r.y > cameraY + H + 60) continue;
+        drawRocket(r);
+      }
+
+      for (const m of monsters) {
+        if (m.y < cameraY - 60 || m.y > cameraY + H + 60) continue;
+        drawMonster(m, m.y + Math.sin(m.phase * 0.12) * 10);
+      }
+
+      if (player.rocket > 0) {
+        // להבה מתחת לאיש בזמן הטיל
+        ctx.save();
+        ctx.fillStyle = "#f2b13c";
+        ctx.beginPath();
+        ctx.moveTo(player.x - 12, player.y + P_H / 2 - 4);
+        ctx.lineTo(player.x, player.y + P_H / 2 + 26 + Math.random() * 10);
+        ctx.lineTo(player.x + 12, player.y + P_H / 2 - 4);
+        ctx.closePath();
+        ctx.fill();
+        ctx.fillStyle = "#ffe08a";
+        ctx.beginPath();
+        ctx.moveTo(player.x - 6, player.y + P_H / 2 - 4);
+        ctx.lineTo(player.x, player.y + P_H / 2 + 14 + Math.random() * 6);
+        ctx.lineTo(player.x + 6, player.y + P_H / 2 - 4);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+      }
+
+      if (face.complete && face.naturalWidth) {
+        const h = P_H * 1.06;
+        const w = h * (face.naturalWidth / face.naturalHeight);
+        ctx.drawImage(face, player.x - w / 2, player.y - h / 2, w, h);
+      } else {
+        ctx.beginPath();
+        ctx.arc(player.x, player.y, P_W / 2, 0, Math.PI * 2);
+        ctx.fillStyle = "#c5d7e6";
+        ctx.fill();
+      }
+
+      ctx.restore();
+    }
+
+    function loop(now) {
+      raf = requestAnimationFrame(loop);
+      if (!lastTime) lastTime = now;
+      let dt = (now - lastTime) / 16.6667;
+      lastTime = now;
+      if (dt > 2.2) dt = 2.2;
+      if (started && alive) update(dt);
+      draw();
+    }
+
+    function setKey(event, down) {
+      const key = event.key;
+      const left = key === "ArrowLeft" || key === "a" || key === "A";
+      const right = key === "ArrowRight" || key === "d" || key === "D";
+      if (!left && !right) return false;
+      event.preventDefault();
+      if (left) keyLeft = down;
+      if (right) keyRight = down;
+      if (down && alive && !started) begin();
+      return true;
+    }
+
+    document.addEventListener("keydown", event => setKey(event, true));
+    document.addEventListener("keyup", event => setKey(event, false));
+
+    canvas.addEventListener("pointerdown", event => {
+      const rect = canvas.getBoundingClientRect();
+      pointerDir = (event.clientX - rect.left) / rect.width < 0.5 ? -1 : 1;
+      if (alive && !started) begin();
+    });
+    ["pointerup", "pointercancel", "pointerleave"].forEach(type => {
+      canvas.addEventListener(type, () => { pointerDir = 0; });
+    });
+
+    startBtn.addEventListener("click", () => {
+      if (!alive) { reset(); begin(); }
+      else if (!started) begin();
+      else reset();
+    });
+
+    face.addEventListener("load", draw);
+    reset();
+    raf = requestAnimationFrame(loop);
+  </script>
+</body>
+</html>

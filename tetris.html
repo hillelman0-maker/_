@@ -1,0 +1,631 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>טטריס</title>
+  <style>
+    :root {
+      --ink: #1c2430;
+      --muted: #5c6778;
+      --paper: #f6f3ee;
+      --card: #fffdf9;
+      --accent: #1f6f5b;
+      --line: #e4ddd3;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Segoe UI", "Arial Hebrew", Arial, sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 12% 8%, #efe6d6 0, transparent 36%),
+        radial-gradient(circle at 90% 90%, #dceee7 0, transparent 32%),
+        var(--paper);
+      display: grid;
+      place-items: center;
+      padding: 16px;
+    }
+
+    .wrap {
+      width: min(430px, 100%);
+    }
+
+    header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 8px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 1.5rem;
+    }
+
+    .score {
+      font-weight: 700;
+      color: var(--accent);
+      font-size: 1.15rem;
+    }
+
+    .top {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      margin-bottom: 8px;
+      color: var(--muted);
+      font-size: 0.9rem;
+    }
+
+    .top b { color: var(--ink); }
+
+    .next {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+
+    #next {
+      width: 42px;
+      height: 42px;
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+    }
+
+    /* הלוח נשאר כולו בתוך המסך: רוחבו נגזר מהגובה הפנוי */
+    .board-shell {
+      position: relative;
+      width: min(100%, max(200px, calc((100vh - 272px) / 2 + 28px)));
+      margin: 0 auto;
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      padding: 14px;
+      box-shadow: 0 18px 50px rgba(40, 32, 20, 0.08);
+    }
+
+    #game {
+      display: block;
+      width: 100%;
+      height: auto;
+      border-radius: 14px;
+      background: #f3efe7;
+      touch-action: none;
+    }
+
+    .pad {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .pad button {
+      width: 50px;
+      height: 42px;
+      padding: 0;
+      font-size: 1.1rem;
+      border-radius: 13px;
+    }
+
+    .help {
+      margin: 10px 4px 0;
+      color: var(--muted);
+      line-height: 1.5;
+      font-size: 0.9rem;
+    }
+
+    .back {
+      color: var(--accent);
+      font-weight: 700;
+      text-decoration: none;
+    }
+
+    .overlay {
+      position: absolute;
+      inset: 14px;
+      border-radius: 14px;
+      background: rgba(255, 253, 249, 0.92);
+      display: grid;
+      place-items: center;
+      text-align: center;
+      padding: 24px;
+    }
+
+    .overlay[hidden] { display: none; }
+
+    .overlay h2 { margin: 0 0 8px; }
+
+    .overlay p { margin: 0 0 18px; color: var(--muted); }
+
+    button {
+      border: 0;
+      background: var(--accent);
+      color: #fff;
+      font: inherit;
+      font-weight: 700;
+      padding: 12px 22px;
+      border-radius: 999px;
+      cursor: pointer;
+    }
+
+    button:hover { background: #185a4a; }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>טטריס</h1>
+      <div class="score">ניקוד: <span id="score">0</span></div>
+    </header>
+    <div class="top">
+      <div>שורות <b id="lines">0</b> · שלב <b id="level">1</b></div>
+      <div class="next"><span>הבא</span><canvas id="next" width="104" height="104"></canvas></div>
+    </div>
+    <div class="board-shell">
+      <canvas id="game" width="300" height="600"></canvas>
+      <div class="overlay" id="overlay">
+        <div>
+          <h2 id="overlay-title">טטריס</h2>
+          <p id="overlay-text">סדרו שורות שלמות כדי שהן ייעלמו</p>
+          <button type="button" id="start">התחל</button>
+        </div>
+      </div>
+    </div>
+    <div class="pad">
+      <button type="button" data-act="left" aria-label="שמאלה">←</button>
+      <button type="button" data-act="rotate" aria-label="סיבוב">↻</button>
+      <button type="button" data-act="right" aria-label="ימינה">→</button>
+      <button type="button" data-act="down" aria-label="למטה">↓</button>
+      <button type="button" data-act="drop" aria-label="הפלה">⤓</button>
+    </div>
+    <p class="help">חצים להזזה וסיבוב (↑), רווח להפלה מהירה, P להשהיה. כל קובייה היא הפרצוף של השחקן. <a class="back" href="index.html">חזרה לכניסה</a></p>
+  </div>
+  <script>
+    /*
+     * טטריס — לוח 10×20 עם שקיות (7-bag).
+     *
+     * מבנה הקוד:
+     *  - COLS/ROWS, board (מערך 2D), SHAPES/COLORS.
+     *  - makePiece/randomType/refillBag: יצירת חתיכות; spawn() מציב חתיכה חדשה.
+     *  - collide/merge/clearLines/lock: פיזיקה וניקוי שורות.
+     *  - move/rotate/step/softDrop/hardDrop: קלט משתמש.
+     *  - draw/drawCell/drawNext: ציור.
+     *  - loop(): requestAnimationFrame עם dropTimer/dropInterval (-Level).
+     *  - begin/reset/gameOver: ניהול מצבי משחק.
+     */
+    const canvas = document.getElementById("game");
+    const ctx = canvas.getContext("2d");
+    const nextCanvas = document.getElementById("next");
+    const nctx = nextCanvas.getContext("2d");
+    const scoreEl = document.getElementById("score");
+    const linesEl = document.getElementById("lines");
+    const levelEl = document.getElementById("level");
+    const overlay = document.getElementById("overlay");
+    const overlayTitle = document.getElementById("overlay-title");
+    const overlayText = document.getElementById("overlay-text");
+    const startBtn = document.getElementById("start");
+
+    // הפרצוף של השחקן מוטבע על כל קובייה בלוח
+    const faceImg = new Image();
+    faceImg.src = "assets/face.png?v=6";
+    faceImg.addEventListener("load", () => {
+      draw();
+      drawNext();
+    });
+
+    const COLS = 10;
+    const ROWS = 20;
+    const CELL = canvas.width / COLS;
+    const NEXT_CELL = 22;
+
+    const SHAPES = {
+      I: [[0, 0, 0, 0], [1, 1, 1, 1], [0, 0, 0, 0], [0, 0, 0, 0]],
+      J: [[1, 0, 0], [1, 1, 1], [0, 0, 0]],
+      L: [[0, 0, 1], [1, 1, 1], [0, 0, 0]],
+      O: [[1, 1], [1, 1]],
+      S: [[0, 1, 1], [1, 1, 0], [0, 0, 0]],
+      T: [[0, 1, 0], [1, 1, 1], [0, 0, 0]],
+      Z: [[1, 1, 0], [0, 1, 1], [0, 0, 0]]
+    };
+
+    const COLORS = {
+      I: "#c9a24a",
+      J: "#1f6f5b",
+      L: "#c98a3f",
+      O: "#4f8f6f",
+      S: "#7bab4f",
+      T: "#2f8f74",
+      Z: "#a86b46"
+    };
+
+    let board, piece, nextPiece, bag;
+    let score, lines, level, alive, started, paused;
+    let dropTimer, raf = 0, lastTime = 0;
+
+    function roundRect(c, x, y, w, h, r) {
+      c.beginPath();
+      c.moveTo(x + r, y);
+      c.arcTo(x + w, y, x + w, y + h, r);
+      c.arcTo(x + w, y + h, x, y + h, r);
+      c.arcTo(x, y + h, x, y, r);
+      c.arcTo(x, y, x + w, y, r);
+      c.closePath();
+    }
+
+    function emptyBoard() {
+      return Array.from({ length: ROWS }, () => Array(COLS).fill(null));
+    }
+
+    function refillBag() {
+      bag = Object.keys(SHAPES);
+      for (let i = bag.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [bag[i], bag[j]] = [bag[j], bag[i]];
+      }
+    }
+
+    function randomType() {
+      if (!bag || !bag.length) refillBag();
+      return bag.pop();
+    }
+
+    function makePiece(type) {
+      return {
+        type,
+        mat: SHAPES[type].map(row => row.slice()),
+        x: 0,
+        y: 0
+      };
+    }
+
+    function spawn() {
+      piece = nextPiece || makePiece(randomType());
+      nextPiece = makePiece(randomType());
+      piece.x = Math.floor((COLS - piece.mat[0].length) / 2);
+      piece.y = 0;
+      dropTimer = 0;
+      drawNext();
+      if (collide(piece, piece.x, piece.y, piece.mat)) {
+        gameOver();
+        return false;
+      }
+      return true;
+    }
+
+    function collide(p, px, py, mat) {
+      for (let y = 0; y < mat.length; y++) {
+        for (let x = 0; x < mat[y].length; x++) {
+          if (!mat[y][x]) continue;
+          const bx = px + x;
+          const by = py + y;
+          if (bx < 0 || bx >= COLS || by >= ROWS) return true;
+          if (by >= 0 && board[by][bx]) return true;
+        }
+      }
+      return false;
+    }
+
+    function merge() {
+      for (let y = 0; y < piece.mat.length; y++) {
+        for (let x = 0; x < piece.mat[y].length; x++) {
+          if (!piece.mat[y][x]) continue;
+          const by = piece.y + y;
+          const bx = piece.x + x;
+          if (by >= 0 && by < ROWS && bx >= 0 && bx < COLS) board[by][bx] = piece.type;
+        }
+      }
+    }
+
+    function clearLines() {
+      let cleared = 0;
+      for (let y = ROWS - 1; y >= 0; y--) {
+        if (board[y].every(Boolean)) {
+          board.splice(y, 1);
+          board.unshift(Array(COLS).fill(null));
+          cleared++;
+          y++;
+        }
+      }
+      if (!cleared) return;
+      score += [0, 100, 300, 500, 800][cleared] * level;
+      lines += cleared;
+      level = Math.floor(lines / 10) + 1;
+      scoreEl.textContent = String(score);
+      linesEl.textContent = String(lines);
+      levelEl.textContent = String(level);
+    }
+
+    function lock() {
+      merge();
+      clearLines();
+      if (!spawn()) draw();
+    }
+
+    function move(dx) {
+      if (!collide(piece, piece.x + dx, piece.y, piece.mat)) {
+        piece.x += dx;
+        draw();
+      }
+    }
+
+    function rotated(mat) {
+      const size = mat.length;
+      const out = Array.from({ length: size }, () => Array(size).fill(0));
+      for (let y = 0; y < size; y++) {
+        for (let x = 0; x < size; x++) {
+          out[x][size - 1 - y] = mat[y][x];
+        }
+      }
+      return out;
+    }
+
+    function rotate() {
+      const mat = rotated(piece.mat);
+      for (const kick of [0, -1, 1, -2, 2]) {
+        if (!collide(piece, piece.x + kick, piece.y, mat)) {
+          piece.mat = mat;
+          piece.x += kick;
+          draw();
+          return;
+        }
+      }
+    }
+
+    function step() {
+      if (!collide(piece, piece.x, piece.y + 1, piece.mat)) {
+        piece.y++;
+        draw();
+      } else {
+        lock();
+      }
+    }
+
+    function softDrop() {
+      if (!collide(piece, piece.x, piece.y + 1, piece.mat)) {
+        piece.y++;
+        dropTimer = 0;
+        draw();
+      } else {
+        lock();
+      }
+    }
+
+    function hardDrop() {
+      let dist = 0;
+      while (!collide(piece, piece.x, piece.y + 1, piece.mat)) {
+        piece.y++;
+        dist++;
+      }
+      score += dist * 2;
+      scoreEl.textContent = String(score);
+      lock();
+    }
+
+    function dropInterval() {
+      return Math.max(110, 850 - (level - 1) * 70);
+    }
+
+    function drawCell(c, px, py, size, color, alpha) {
+      c.globalAlpha = alpha === undefined ? 1 : alpha;
+      c.fillStyle = color;
+      roundRect(c, px + 1, py + 1, size - 2, size - 2, Math.max(3, size * 0.16));
+      c.fill();
+      c.fillStyle = "rgba(255, 255, 255, 0.26)";
+      roundRect(c, px + 3, py + 3, size - 6, Math.max(2, size * 0.16), 2);
+      c.fill();
+      if (faceImg.complete && faceImg.naturalWidth) {
+        const fh = size * 0.82;
+        const fw = fh * (faceImg.naturalWidth / faceImg.naturalHeight);
+        c.drawImage(faceImg, px + (size - fw) / 2, py + (size - fh) / 2, fw, fh);
+      }
+      c.globalAlpha = 1;
+    }
+
+    function ghostY() {
+      let y = piece.y;
+      while (!collide(piece, piece.x, y + 1, piece.mat)) y++;
+      return y;
+    }
+
+    function draw() {
+      const bg = ctx.createLinearGradient(0, 0, 0, canvas.height);
+      bg.addColorStop(0, "#fbf8f2");
+      bg.addColorStop(1, "#ece2d1");
+      ctx.fillStyle = bg;
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      ctx.strokeStyle = "rgba(28, 36, 48, 0.06)";
+      ctx.lineWidth = 1;
+      for (let x = 1; x < COLS; x++) {
+        ctx.beginPath();
+        ctx.moveTo(x * CELL, 0);
+        ctx.lineTo(x * CELL, canvas.height);
+        ctx.stroke();
+      }
+      for (let y = 1; y < ROWS; y++) {
+        ctx.beginPath();
+        ctx.moveTo(0, y * CELL);
+        ctx.lineTo(canvas.width, y * CELL);
+        ctx.stroke();
+      }
+
+      for (let y = 0; y < ROWS; y++) {
+        for (let x = 0; x < COLS; x++) {
+          const type = board[y][x];
+          if (type) drawCell(ctx, x * CELL, y * CELL, CELL, COLORS[type]);
+        }
+      }
+
+      if (piece && alive) {
+        const gy = ghostY();
+        for (let y = 0; y < piece.mat.length; y++) {
+          for (let x = 0; x < piece.mat[y].length; x++) {
+            if (!piece.mat[y][x]) continue;
+            drawCell(ctx, (piece.x + x) * CELL, (gy + y) * CELL, CELL, COLORS[piece.type], 0.2);
+          }
+        }
+        for (let y = 0; y < piece.mat.length; y++) {
+          for (let x = 0; x < piece.mat[y].length; x++) {
+            if (!piece.mat[y][x]) continue;
+            drawCell(ctx, (piece.x + x) * CELL, (piece.y + y) * CELL, CELL, COLORS[piece.type]);
+          }
+        }
+      }
+    }
+
+    function drawNext() {
+      nctx.clearRect(0, 0, nextCanvas.width, nextCanvas.height);
+      if (!nextPiece) return;
+      const mat = nextPiece.mat;
+      let minX = 99, maxX = -1, minY = 99, maxY = -1;
+      for (let y = 0; y < mat.length; y++) {
+        for (let x = 0; x < mat[y].length; x++) {
+          if (!mat[y][x]) continue;
+          minX = Math.min(minX, x);
+          maxX = Math.max(maxX, x);
+          minY = Math.min(minY, y);
+          maxY = Math.max(maxY, y);
+        }
+      }
+      const w = (maxX - minX + 1) * NEXT_CELL;
+      const h = (maxY - minY + 1) * NEXT_CELL;
+      const ox = (nextCanvas.width - w) / 2;
+      const oy = (nextCanvas.height - h) / 2;
+      for (let y = minY; y <= maxY; y++) {
+        for (let x = minX; x <= maxX; x++) {
+          if (!mat[y][x]) continue;
+          drawCell(nctx, ox + (x - minX) * NEXT_CELL, oy + (y - minY) * NEXT_CELL, NEXT_CELL, COLORS[nextPiece.type]);
+        }
+      }
+    }
+
+    function showStart() {
+      overlayTitle.textContent = "טטריס";
+      overlayText.textContent = "סדרו שורות שלמות כדי שהן ייעלמו";
+      startBtn.textContent = "התחל";
+      overlay.hidden = false;
+    }
+
+    function reset() {
+      board = emptyBoard();
+      bag = null;
+      score = 0;
+      lines = 0;
+      level = 1;
+      alive = true;
+      started = false;
+      paused = false;
+      dropTimer = 0;
+      piece = null;
+      nextPiece = null;
+      scoreEl.textContent = "0";
+      linesEl.textContent = "0";
+      levelEl.textContent = "1";
+      nextPiece = makePiece(randomType());
+      spawn();
+      showStart();
+      draw();
+    }
+
+    function begin() {
+      if (started || !alive) return;
+      started = true;
+      paused = false;
+      lastTime = 0;
+      dropTimer = 0;
+      overlay.hidden = true;
+    }
+
+    function togglePause() {
+      if (!started || !alive) return;
+      paused = !paused;
+      overlayTitle.textContent = "הפסקה";
+      overlayText.textContent = "לחצו P כדי להמשיך";
+      startBtn.textContent = "המשך";
+      overlay.hidden = !paused;
+    }
+
+    function gameOver() {
+      alive = false;
+      started = false;
+      overlayTitle.textContent = "נגמר המשחק";
+      overlayText.textContent = "ניקוד סופי: " + score + " · " + lines + " שורות";
+      startBtn.textContent = "שחק שוב";
+      overlay.hidden = false;
+    }
+
+    function loop(now) {
+      raf = requestAnimationFrame(loop);
+      if (!lastTime) lastTime = now;
+      const dt = Math.min(100, now - lastTime);
+      lastTime = now;
+      if (started && alive && !paused) {
+        dropTimer += dt;
+        if (dropTimer >= dropInterval()) {
+          dropTimer = 0;
+          step();
+        }
+      }
+      draw();
+    }
+
+    document.addEventListener("keydown", event => {
+      const key = event.key;
+      if (["ArrowLeft", "ArrowRight", "ArrowDown", "ArrowUp", " ", "Spacebar"].includes(key)) {
+        event.preventDefault();
+      }
+      if (key === "p" || key === "P") {
+        togglePause();
+        return;
+      }
+      if (!started) {
+        if (key === "Enter" || key === " ") {
+          if (alive) begin();
+          else reset();
+        }
+        return;
+      }
+      if (!alive || paused) return;
+      if (key === "ArrowLeft" || key === "a" || key === "A") move(-1);
+      else if (key === "ArrowRight" || key === "d" || key === "D") move(1);
+      else if (key === "ArrowDown" || key === "s" || key === "S") softDrop();
+      else if (key === "ArrowUp" || key === "w" || key === "W") rotate();
+      else if (key === " " || key === "Spacebar") hardDrop();
+    });
+
+    document.querySelectorAll(".pad button").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const act = btn.dataset.act;
+        if (!started) {
+          if (alive) begin();
+          else reset();
+          return;
+        }
+        if (!alive || paused) return;
+        if (act === "left") move(-1);
+        else if (act === "right") move(1);
+        else if (act === "rotate") rotate();
+        else if (act === "down") softDrop();
+        else if (act === "drop") hardDrop();
+      });
+    });
+
+    startBtn.addEventListener("click", () => {
+      if (paused) return togglePause();
+      if (alive && !started) begin();
+      else reset();
+    });
+
+    reset();
+    raf = requestAnimationFrame(loop);
+  </script>
+</body>
+</html>

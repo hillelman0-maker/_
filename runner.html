@@ -1,0 +1,1243 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>משחק דינוזאור</title>
+  <style>
+    :root {
+      --ink: #1c2430;
+      --muted: #5c6778;
+      --paper: #f6f3ee;
+      --card: #fffdf9;
+      --accent: #1f6f5b;
+      --line: #e4ddd3;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: "Segoe UI", "Arial Hebrew", Arial, sans-serif;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 12% 8%, #efe6d6 0, transparent 36%),
+        radial-gradient(circle at 90% 90%, #dceee7 0, transparent 32%),
+        var(--paper);
+      display: grid;
+      place-items: center;
+      padding: 24px 16px;
+    }
+
+    .wrap {
+      width: min(780px, 100%);
+    }
+
+    header {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 16px;
+      margin-bottom: 12px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 1.7rem;
+    }
+
+    .scores {
+      display: flex;
+      gap: 14px;
+      font-weight: 700;
+      color: var(--accent);
+      font-size: 1rem;
+      white-space: nowrap;
+    }
+
+    .scores span small {
+      display: block;
+      font-weight: 600;
+      font-size: 0.7rem;
+      color: var(--muted);
+    }
+
+    .scores span.flash { animation: scoreBlink 0.9s steps(1, end) 3; }
+
+    @keyframes scoreBlink {
+      0%, 49% { opacity: 0.12; }
+      50%, 100% { opacity: 1; }
+    }
+
+    .board-shell {
+      position: relative;
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      padding: 12px;
+      box-shadow: 0 18px 50px rgba(40, 32, 20, 0.08);
+    }
+
+    canvas {
+      display: block;
+      width: 100%;
+      height: auto;
+      border-radius: 14px;
+      background: #f3efe7;
+      touch-action: manipulation;
+    }
+
+    .pad {
+      display: flex;
+      justify-content: center;
+      gap: 8px;
+      margin-top: 12px;
+    }
+
+    .pad button {
+      width: 130px;
+      height: 44px;
+      padding: 0;
+      font-size: 1rem;
+      border-radius: 14px;
+    }
+
+    .help {
+      margin: 12px 4px 0;
+      color: var(--muted);
+      line-height: 1.55;
+      font-size: 0.95rem;
+    }
+
+    .back {
+      color: var(--accent);
+      font-weight: 700;
+      text-decoration: none;
+    }
+
+    .overlay {
+      position: absolute;
+      inset: 12px;
+      border-radius: 14px;
+      background: rgba(255, 253, 249, 0.94);
+      display: grid;
+      place-items: center;
+      text-align: center;
+      padding: 18px;
+      overflow: auto;
+    }
+
+    .overlay[hidden] { display: none; }
+
+    .overlay h2 { margin: 0 0 6px; font-size: 1.2rem; }
+
+    .overlay p { margin: 0 0 12px; color: var(--muted); font-size: 0.95rem; }
+
+    .setup {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .setup label {
+      font-size: 0.9rem;
+      font-weight: 700;
+      color: var(--muted);
+    }
+
+    input[type="text"] {
+      font: inherit;
+      font-size: 0.95rem;
+      padding: 7px 12px;
+      border-radius: 10px;
+      border: 1px solid var(--line);
+      background: #fff;
+      color: var(--ink);
+      width: 140px;
+      text-align: center;
+    }
+
+    .swatches {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      align-items: center;
+      gap: 7px;
+      margin-bottom: 14px;
+    }
+
+    .swatches button {
+      width: 30px;
+      height: 30px;
+      padding: 0;
+      border-radius: 50%;
+      background: var(--c);
+      border: 2px solid transparent;
+      box-shadow: inset 0 0 0 1px rgba(28, 36, 48, 0.12);
+      cursor: pointer;
+    }
+
+    .swatches button[aria-pressed="true"] {
+      border-color: var(--ink);
+      transform: scale(1.08);
+    }
+
+    .swatches input[type="color"] {
+      width: 34px;
+      height: 30px;
+      padding: 0;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+      cursor: pointer;
+    }
+
+    button {
+      border: 0;
+      background: var(--accent);
+      color: #fff;
+      font: inherit;
+      font-weight: 700;
+      padding: 11px 22px;
+      border-radius: 999px;
+      cursor: pointer;
+    }
+
+    button:hover { background: #185a4a; }
+
+    /* במסכים צרים הלוח נמוך, ומסך הפתיחה צריך להיכנס בלי גלילה */
+    @media (max-width: 520px) {
+      .overlay { padding: 10px 8px; }
+      .overlay h2 { font-size: 1rem; margin-bottom: 2px; }
+      .overlay p { font-size: 0.78rem; line-height: 1.35; margin-bottom: 6px; }
+      .setup { margin-bottom: 6px; gap: 6px; }
+      .setup label { font-size: 0.78rem; }
+      input[type="text"] { font-size: 0.8rem; padding: 5px 8px; width: 110px; }
+      .swatches { gap: 5px; margin-bottom: 8px; }
+      .swatches button { width: 24px; height: 24px; }
+      .swatches input[type="color"] { width: 28px; height: 24px; }
+      #start { padding: 9px 18px; font-size: 0.92rem; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>משחק דינוזאור</h1>
+      <div class="scores">
+        <span id="money">₪ 0<small>כסף</small></span>
+        <span id="meters">0 מ'<small>מרחק</small></span>
+        <span id="best">₪ 0<small>שיא</small></span>
+      </div>
+    </header>
+    <div class="board-shell">
+      <canvas id="game" width="720" height="420"></canvas>
+      <div class="overlay" id="overlay">
+        <div>
+          <h2 id="overlay-title">משחק דינוזאור</h2>
+          <p id="overlay-text">קופצים מעל הקקטוסים, מתכופפים מתחת לציפורים ואוספים שטרות של 200. הדמות היא הבן אדם מהכניסה עם החליפה, ורק צבע החליפה משתנה.</p>
+          <div class="setup">
+            <label for="pname">שם השחקן</label>
+            <input type="text" id="pname" maxlength="14" placeholder="שחקן 1" autocomplete="off">
+          </div>
+          <div class="swatches" id="swatches" role="group" aria-label="צבע החליפה של השחקן">
+            <input type="color" id="custom" aria-label="צבע אחר">
+          </div>
+          <button type="button" id="start">התחל לרוץ</button>
+        </div>
+      </div>
+    </div>
+    <div class="pad">
+      <button type="button" id="jump">קפיצה</button>
+      <button type="button" id="duck">התכופפות</button>
+    </div>
+    <p class="help">רווח / ↑ / W לקפיצה, ↓ / S להתכופפות, P להשהיה, R להתחלה מחדש. בדרך יש קקטוסים, להקות ציפורים, וכל 700 מטר יורד לילה עם כוכבים וירח. הדמות לובשת את החליפה מהכניסה, וכל שחקן בוחר צבע לחליפה — הצבע נשמר לפי השם. <a class="back" href="index.html">חזרה לכניסה</a></p>
+  </div>
+  <script>
+    /*
+     * ראנר — רץ אינסופי בסגנון Chrome Dino, עם שחקן (suit sprite) ומכשולים.
+     *
+     * מבנה הקוד:
+     *  - PALETTE/STORAGE (localStorage: runboy:name, runboy:colors, runboy:best).
+     *  - suitSprite: ציור דמות עם צבעים personnalisables.
+     *  - spawnObstacle/spawnBill: יצירת מכשולים ושטרות.
+     *  - update(): פיזיקה, התנגשויות, ניקוד, מהירות.
+     *  - drawBackground/draw(): ציור רקע וסצנה.
+     *  - loop(): requestAnimationFrame.
+     *  - begin/reset/gameOver: מצבי משחק; shop/name customization.
+     */
+    const canvas = document.getElementById("game");
+    const ctx = canvas.getContext("2d");
+    const W = canvas.width;
+    const H = canvas.height;
+
+    const overlay = document.getElementById("overlay");
+    const overlayTitle = document.getElementById("overlay-title");
+    const overlayText = document.getElementById("overlay-text");
+    const startBtn = document.getElementById("start");
+    const jumpBtn = document.getElementById("jump");
+    const duckBtn = document.getElementById("duck");
+    const moneyEl = document.getElementById("money");
+    const metersEl = document.getElementById("meters");
+    const bestEl = document.getElementById("best");
+    const nameInput = document.getElementById("pname");
+    const swatchesEl = document.getElementById("swatches");
+    const customInput = document.getElementById("custom");
+
+    const GROUND_Y = 352;
+    const PLAYER_X = 150;
+    const PW = 34;
+    const PH = 54;
+    const GRAV = 0.92;
+    const JUMP = -15.2;
+    const DUCK_H = 30;
+    const START_SPEED = 4.8;
+    const STEP = 16.6667;
+
+    const heroImg = new Image();
+    heroImg.src = "assets/hero.png?v=2";
+    const billFront = new Image();
+    billFront.src = "assets/bill-200-front.webp";
+    const billBack = new Image();
+    billBack.src = "assets/bill-200-back.webp";
+
+    // צבעי החליפה האפשריים — כל שחקן בוחר מהם
+    const PALETTE = [
+      { name: "ירוק", value: "#2f8f72" },
+      { name: "כחול", value: "#2f6fa8" },
+      { name: "אדום", value: "#b4483c" },
+      { name: "כתום", value: "#c47a2c" },
+      { name: "סגול", value: "#7a5aa8" },
+      { name: "ורוד", value: "#c25b8a" },
+      { name: "טורקיז", value: "#2b9a9a" },
+      { name: "זהב", value: "#b08a2e" }
+    ];
+    const OTHER = "__other";
+
+    let color = PALETTE[0].value;
+    let colorKey = PALETTE[0].value;
+    let playerName = "";
+
+    const STORE_NAME = "runboy:name";
+    const STORE_COLORS = "runboy:colors";
+    const STORE_BEST = "runboy:best";
+
+    function readStore(key, fallback) {
+      try {
+        const raw = localStorage.getItem(key);
+        if (!raw) return fallback;
+        return JSON.parse(raw);
+      } catch (err) {
+        return fallback;
+      }
+    }
+
+    function writeStore(key, value) {
+      try {
+        localStorage.setItem(key, JSON.stringify(value));
+      } catch (err) {
+        /* מצב פרטי או אחסון חסום — המשחק ממשיך בלי שמירה */
+      }
+    }
+
+    function readColors() {
+      const data = readStore(STORE_COLORS, {});
+      return data && typeof data === "object" ? data : {};
+    }
+
+    function readBest() {
+      const data = readStore(STORE_BEST, {});
+      return data && typeof data === "object" ? data : {};
+    }
+
+    function playerKey() {
+      return (playerName || "שחקן").trim() || "שחקן";
+    }
+
+    function bestFor(name) {
+      const best = readBest();
+      const value = best[name];
+      return typeof value === "number" ? value : 0;
+    }
+
+    function showBest() {
+      bestEl.innerHTML = "₪ " + bestFor(playerKey()).toLocaleString("he-IL") + "<small>שיא</small>";
+    }
+
+    function savePlayer() {
+      const name = playerKey();
+      writeStore(STORE_NAME, name);
+      const colors = readColors();
+      colors[name] = colorKey;
+      writeStore(STORE_COLORS, colors);
+    }
+
+    // הדמות היא תמונת הכניסה (פנים + חליפה), ורק החליפה נצבעת בצבע השחקן.
+    // החליפה היא החלק החום שמתחת לקו הכתפיים; הפנים, השיער והחולצה נשארים כמו שהם.
+    const SUIT_TOP = 0.36;
+    const suitCache = new Map();
+    let heroSource = null;
+
+    function heroSourceCanvas() {
+      if (heroSource) return heroSource;
+      if (!heroImg.complete || !heroImg.naturalWidth) return null;
+      try {
+        const off = document.createElement("canvas");
+        off.width = heroImg.naturalWidth;
+        off.height = heroImg.naturalHeight;
+        const octx = off.getContext("2d", { willReadFrequently: true });
+        octx.drawImage(heroImg, 0, 0);
+        octx.getImageData(0, 0, 1, 1);
+        heroSource = off;
+      } catch (err) {
+        heroSource = null;
+      }
+      return heroSource;
+    }
+
+    function hexToRgb(hex) {
+      const n = parseInt(String(hex).replace("#", ""), 16);
+      if (Number.isNaN(n)) return { r: 47, g: 143, b: 114 };
+      return { r: (n >> 16) & 255, g: (n >> 8) & 255, b: n & 255 };
+    }
+
+    function rgbToHsv(r, g, b) {
+      r /= 255;
+      g /= 255;
+      b /= 255;
+      const max = Math.max(r, g, b);
+      const min = Math.min(r, g, b);
+      const d = max - min;
+      let h = 0;
+      if (d) {
+        if (max === r) h = ((g - b) / d) % 6;
+        else if (max === g) h = (b - r) / d + 2;
+        else h = (r - g) / d + 4;
+        h *= 60;
+        if (h < 0) h += 360;
+      }
+      return { h: h, s: max ? d / max : 0, v: max };
+    }
+
+    function hsvToRgb(h, s, v) {
+      h = ((h % 360) + 360) % 360;
+      const c = v * s;
+      const hp = h / 60;
+      const x = c * (1 - Math.abs((hp % 2) - 1));
+      let r = 0;
+      let g = 0;
+      let b = 0;
+      if (hp < 1) { r = c; g = x; }
+      else if (hp < 2) { r = x; g = c; }
+      else if (hp < 3) { g = c; b = x; }
+      else if (hp < 4) { g = x; b = c; }
+      else if (hp < 5) { r = x; b = c; }
+      else { r = c; b = x; }
+      const m = v - c;
+      return [Math.round((r + m) * 255), Math.round((g + m) * 255), Math.round((b + m) * 255)];
+    }
+
+    // דמות הכניסה עם חליפה בצבע השחקן (נשמר במטמון לכל צבע)
+    function suitSprite(hex) {
+      const key = String(hex).toLowerCase();
+      if (suitCache.has(key)) return suitCache.get(key);
+      const src = heroSourceCanvas();
+      if (!src) return null;
+      const target = hexToRgb(key);
+      const hue = rgbToHsv(target.r, target.g, target.b).h;
+      const cv = document.createElement("canvas");
+      cv.width = src.width;
+      cv.height = src.height;
+      const cctx = cv.getContext("2d", { willReadFrequently: true });
+      cctx.drawImage(src, 0, 0);
+      const frame = cctx.getImageData(0, 0, cv.width, cv.height);
+      const data = frame.data;
+      const top = Math.round(cv.height * SUIT_TOP);
+      for (let y = top; y < cv.height; y++) {
+        for (let x = 0; x < cv.width; x++) {
+          const i = (y * cv.width + x) * 4;
+          if (!data[i + 3]) continue;
+          const hsv = rgbToHsv(data[i], data[i + 1], data[i + 2]);
+          if (hsv.h < 6 || hsv.h > 44 || hsv.s < 0.2 || hsv.v < 0.1) continue;
+          const rgb = hsvToRgb(hue, Math.min(1, hsv.s * 1.05), hsv.v);
+          data[i] = rgb[0];
+          data[i + 1] = rgb[1];
+          data[i + 2] = rgb[2];
+        }
+      }
+      cctx.putImageData(frame, 0, 0);
+      suitCache.set(key, cv);
+      return cv;
+    }
+
+    function shade(hex, amount) {
+      const n = parseInt(hex.replace("#", ""), 16);
+      if (Number.isNaN(n)) return hex;
+      let r = (n >> 16) & 255;
+      let g = (n >> 8) & 255;
+      let b = n & 255;
+      if (amount < 0) {
+        r = Math.round(r * (1 + amount));
+        g = Math.round(g * (1 + amount));
+        b = Math.round(b * (1 + amount));
+      } else {
+        r = Math.round(r + (255 - r) * amount);
+        g = Math.round(g + (255 - g) * amount);
+        b = Math.round(b + (255 - b) * amount);
+      }
+      return "rgb(" + r + ", " + g + ", " + b + ")";
+    }
+
+    function lerpColor(a, b, t) {
+      return "rgb(" + Math.round(a[0] + (b[0] - a[0]) * t) + ", " + Math.round(a[1] + (b[1] - a[1]) * t) + ", " + Math.round(a[2] + (b[2] - a[2]) * t) + ")";
+    }
+
+    // צליל כסף — אותו צליל מהסנייק, מסונתז ב־WebAudio
+    let audioCtx = null;
+    let noiseBuffer = null;
+
+    function ensureAudio() {
+      if (!audioCtx) {
+        const AC = window.AudioContext || window.webkitAudioContext;
+        if (!AC) return null;
+        audioCtx = new AC();
+      }
+      if (audioCtx.state === "suspended") audioCtx.resume();
+      return audioCtx;
+    }
+
+    function getNoise(ac) {
+      if (noiseBuffer) return noiseBuffer;
+      const length = Math.floor(ac.sampleRate * 0.2);
+      noiseBuffer = ac.createBuffer(1, length, ac.sampleRate);
+      const data = noiseBuffer.getChannelData(0);
+      for (let i = 0; i < length; i++) {
+        data[i] = (Math.random() * 2 - 1) * (1 - i / length);
+      }
+      return noiseBuffer;
+    }
+
+    function playCash() {
+      const ac = ensureAudio();
+      if (!ac) return;
+      const t0 = ac.currentTime;
+
+      const rustle = ac.createBufferSource();
+      rustle.buffer = getNoise(ac);
+      const band = ac.createBiquadFilter();
+      band.type = "bandpass";
+      band.frequency.value = 2600;
+      band.Q.value = 0.7;
+      const rustleGain = ac.createGain();
+      rustleGain.gain.setValueAtTime(0.0001, t0);
+      rustleGain.gain.exponentialRampToValueAtTime(0.24, t0 + 0.012);
+      rustleGain.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.17);
+      rustle.connect(band).connect(rustleGain).connect(ac.destination);
+      rustle.start(t0);
+      rustle.stop(t0 + 0.18);
+
+      [1318.5, 1975.5].forEach((freq, i) => {
+        const at = t0 + i * 0.055;
+        const osc = ac.createOscillator();
+        const gain = ac.createGain();
+        osc.type = "triangle";
+        osc.frequency.setValueAtTime(freq, at);
+        gain.gain.setValueAtTime(0.0001, at);
+        gain.gain.exponentialRampToValueAtTime(0.11, at + 0.01);
+        gain.gain.exponentialRampToValueAtTime(0.0001, at + 0.3);
+        osc.connect(gain).connect(ac.destination);
+        osc.start(at);
+        osc.stop(at + 0.32);
+      });
+    }
+
+    let world, speed, money, distance, bills, obstacles, runPhase, bgX, best;
+    let player, started, paused, alive, deadTimer, frame = 0, nextSpawn = 0, nextBillSpawn = 0;
+    let lastTime = 0, raf = 0;
+    let duckHeld = false;
+    let nightT = 0, nightTarget = 0, nextNight = 700, nextFlash = 100;
+    let clouds = [];
+
+    // כוכבי הלילה במיקום קבוע, עם הבהוב עדין
+    const STARS = [];
+    for (let i = 0; i < 46; i++) {
+      STARS.push({
+        x: (i * 157) % 720,
+        y: 24 + ((i * 83) % 190),
+        r: 0.8 + ((i * 37) % 10) / 9,
+        p: (i * 0.7) % (Math.PI * 2)
+      });
+    }
+
+    function roundRect(x, y, w, h, r) {
+      ctx.beginPath();
+      ctx.moveTo(x + r, y);
+      ctx.arcTo(x + w, y, x + w, y + h, r);
+      ctx.arcTo(x + w, y + h, x, y + h, r);
+      ctx.arcTo(x, y + h, x, y, r);
+      ctx.arcTo(x, y, x + w, y, r);
+      ctx.closePath();
+    }
+
+    function rectHit(a, b) {
+      return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+    }
+
+    function updateHud() {
+      moneyEl.innerHTML = "₪ " + Math.round(money).toLocaleString("he-IL") + "<small>כסף</small>";
+      metersEl.innerHTML = Math.floor(distance / 10) + " מ'<small>מרחק</small>";
+      bestEl.innerHTML = "₪ " + Math.round(best).toLocaleString("he-IL") + "<small>שיא</small>";
+    }
+
+    // כמו אצל הדינוזאור: המספר מהבהב בכל 100 מטר
+    function flashScore() {
+      metersEl.classList.remove("flash");
+      void metersEl.offsetWidth;
+      metersEl.classList.add("flash");
+    }
+
+    function resetGame() {
+      world = 0;
+      speed = START_SPEED;
+      money = 0;
+      distance = 0;
+      bills = [];
+      obstacles = [];
+      bgX = 0;
+      runPhase = 0;
+      nextSpawn = 420;
+      nextBillSpawn = 260;
+      player = { y: GROUND_Y - PH, vy: 0, onGround: true, duck: false };
+      started = false;
+      paused = false;
+      alive = true;
+      deadTimer = 0;
+      duckHeld = false;
+      nightT = 0;
+      nightTarget = 0;
+      nextNight = 700;
+      nextFlash = 100;
+      clouds = [
+        { x: 110, y: 74, s: 1 },
+        { x: 420, y: 112, s: 0.72 },
+        { x: 640, y: 62, s: 1.15 }
+      ];
+      best = bestFor(playerKey());
+      updateHud();
+    }
+
+    function showOverlay(title, text, buttonLabel) {
+      overlayTitle.textContent = title;
+      overlayText.textContent = text;
+      startBtn.textContent = buttonLabel;
+      overlay.hidden = false;
+    }
+
+    function showSetup() {
+      showOverlay(
+        "משחק דינוזאור",
+        "בוחרים שם וצבע לחליפה, ואז קופצים מעל המכשולים ואוספים שטרות.",
+        "התחל לרוץ"
+      );
+    }
+
+    function begin() {
+      if (!alive) return;
+      if (paused && started) {
+        paused = false;
+        overlay.hidden = true;
+        lastTime = 0;
+        return;
+      }
+      started = true;
+      paused = false;
+      overlay.hidden = true;
+      lastTime = 0;
+      ensureAudio();
+      savePlayer();
+      showBest();
+    }
+
+    function restart() {
+      resetGame();
+      begin();
+    }
+
+    function gameOver() {
+      if (!alive) return;
+      alive = false;
+      started = false;
+      deadTimer = 30;
+      if (money > best) {
+        best = money;
+        const data = readBest();
+        data[playerKey()] = Math.round(best);
+        writeStore(STORE_BEST, data);
+      }
+      updateHud();
+    }
+
+    function jump() {
+      if (!alive) {
+        restart();
+        return;
+      }
+      if (!started) {
+        begin();
+        return;
+      }
+      if (paused) return;
+      if (player.onGround) {
+        player.vy = JUMP;
+        player.onGround = false;
+        player.duck = false;
+      }
+    }
+
+    function togglePause() {
+      if (!alive || !started) return;
+      paused = !paused;
+      if (paused) {
+        showOverlay("הפסקה", "ממשיכים כשאתם מוכנים.", "להמשיך");
+      } else {
+        overlay.hidden = true;
+        lastTime = 0;
+      }
+    }
+
+    function spawnObstacle() {
+      const meters = Math.floor(distance / 10);
+      // ציפורים מגיעות אחרי 300 מטר, כמו בשלבים המתקדמים אצל הדינוזאור
+      if (meters > 300 && Math.random() < 0.24) {
+        const lanes = [GROUND_Y - 118, GROUND_Y - 70, GROUND_Y - 38];
+        const y = lanes[Math.floor(Math.random() * lanes.length)];
+        obstacles.push({ x: W + 40, y: y, w: 46, h: 30, kind: "bird", phase: Math.random() * Math.PI * 2 });
+        return;
+      }
+
+      const large = Math.random() < 0.45;
+      const count = Math.random() < 0.35 ? (Math.random() < 0.4 ? 3 : 2) : 1;
+      let offset = 0;
+      for (let i = 0; i < count; i++) {
+        const h = large ? 52 + Math.round(Math.random() * 16) : 30 + Math.round(Math.random() * 16);
+        const w = large ? 26 : 18;
+        obstacles.push({
+          x: W + 40 + offset,
+          y: GROUND_Y - h,
+          w: w,
+          h: h,
+          kind: "cactus",
+          arm: Math.random() < 0.65
+        });
+        offset += w + 5 + Math.round(Math.random() * 5);
+      }
+    }
+
+    function spawnBill() {
+      const count = Math.random() < 0.4 ? 3 : 1;
+      const baseY = GROUND_Y - (70 + Math.random() * 90);
+      for (let i = 0; i < count; i++) {
+        bills.push({
+          x: W + 60 + i * 54,
+          y: baseY - (count > 1 ? Math.sin((i / (count - 1)) * Math.PI) * 26 : 0),
+          got: false,
+          float: Math.random() * Math.PI * 2,
+          back: i % 2 === 1
+        });
+      }
+    }
+
+    function update() {
+      frame++;
+      runPhase += speed * 0.09;
+      bgX -= speed * 0.35;
+      world += speed;
+
+      speed = Math.min(12.5, START_SPEED + world / 5200);
+      distance += speed;
+
+      const meters = Math.floor(distance / 10);
+      if (meters >= nextFlash) {
+        nextFlash = meters + 100;
+        flashScore();
+      }
+      if (meters >= nextNight) {
+        nextNight = meters + 700;
+        nightTarget = nightTarget ? 0 : 1;
+      }
+      nightT += (nightTarget - nightT) * 0.035;
+
+      for (const cloud of clouds) {
+        cloud.x -= speed * 0.22;
+        if (cloud.x < -90) {
+          cloud.x = W + 80 + Math.random() * 220;
+          cloud.y = 52 + Math.random() * 84;
+          cloud.s = 0.65 + Math.random() * 0.7;
+        }
+      }
+
+      if (player.onGround) {
+        player.y = GROUND_Y - PH;
+        player.vy = 0;
+        player.duck = duckHeld;
+      } else {
+        // לחיצה למטה באוויר מאיצה את הנחיתה, כמו אצל הדינוזאור
+        if (duckHeld) player.vy = Math.max(player.vy, 13);
+        player.vy = Math.min(17, player.vy + GRAV);
+        player.y += player.vy;
+        if (player.y >= GROUND_Y - PH) {
+          player.y = GROUND_Y - PH;
+          player.vy = 0;
+          player.onGround = true;
+        }
+      }
+
+      if (world > nextSpawn) {
+        spawnObstacle();
+        // המרווח נשמר בזמן ולא במרחק, כדי שהמשחק יישאר הוגן כשמאיצים
+        nextSpawn = world + speed * (34 + Math.random() * 30);
+      }
+      if (world > nextBillSpawn) {
+        spawnBill();
+        nextBillSpawn = world + 340 + Math.random() * 460;
+      }
+
+      for (const o of obstacles) o.x -= speed;
+      obstacles = obstacles.filter(o => o.x + o.w > -60);
+
+      const bodyH = player.duck && player.onGround ? DUCK_H : PH;
+      const body = { x: PLAYER_X, y: player.y + (PH - bodyH), w: PW - 6, h: bodyH };
+      for (const o of obstacles) {
+        if (rectHit(body, o)) {
+          gameOver();
+          break;
+        }
+      }
+
+      for (const b of bills) {
+        b.x -= speed;
+        b.float += 0.08;
+        if (b.got) continue;
+        if (rectHit(body, { x: b.x, y: b.y - 16, w: 46, h: 32 })) {
+          b.got = true;
+          money += 200;
+          playCash();
+          updateHud();
+        }
+      }
+      bills = bills.filter(b => b.x > -80 && !b.got);
+    }
+
+    function drawCloud(x, y, s) {
+      const r = Math.round(255 + (150 - 255) * nightT);
+      const g = Math.round(255 + (172 - 255) * nightT);
+      const b = Math.round(255 + (205 - 255) * nightT);
+      ctx.fillStyle = "rgba(" + r + ", " + g + ", " + b + ", " + (0.85 - 0.5 * nightT).toFixed(2) + ")";
+      ctx.beginPath();
+      ctx.arc(x, y, 16 * s, 0, Math.PI * 2);
+      ctx.arc(x + 20 * s, y - 8 * s, 20 * s, 0, Math.PI * 2);
+      ctx.arc(x + 44 * s, y, 15 * s, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    function drawBackground() {
+      const n = nightT;
+      const sky = ctx.createLinearGradient(0, 0, 0, H);
+      sky.addColorStop(0, lerpColor([238, 246, 242], [20, 27, 40], n));
+      sky.addColorStop(0.6, lerpColor([247, 242, 232], [27, 36, 52], n));
+      sky.addColorStop(1, lerpColor([236, 226, 209], [16, 22, 31], n));
+      ctx.fillStyle = sky;
+      ctx.fillRect(0, 0, W, H);
+
+      // לילה: כוכבים מהבהבים וירח
+      if (n > 0.02) {
+        ctx.fillStyle = "#f5f8ff";
+        for (let i = 0; i < STARS.length; i++) {
+          const s = STARS[i];
+          ctx.globalAlpha = n * (0.35 + 0.65 * Math.abs(Math.sin(frame * 0.02 + s.p)));
+          ctx.beginPath();
+          ctx.arc(s.x, s.y, s.r, 0, Math.PI * 2);
+          ctx.fill();
+        }
+        ctx.globalAlpha = n;
+        ctx.fillStyle = "#f4f1dd";
+        ctx.beginPath();
+        ctx.arc(566, 86, 26, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.fillStyle = lerpColor([244, 246, 240], [22, 29, 42], n);
+        ctx.beginPath();
+        ctx.arc(553, 75, 23, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.globalAlpha = 1;
+      }
+
+      // גבעות רחוקות
+      const hillOffset = ((bgX * 0.6) % 320 + 320) % 320;
+      ctx.fillStyle = lerpColor([226, 236, 223], [36, 46, 62], n);
+      for (let i = -1; i < 4; i++) {
+        const x = i * 320 + hillOffset;
+        ctx.beginPath();
+        ctx.arc(x + 120, GROUND_Y + 10, 130, Math.PI, 0);
+        ctx.fill();
+      }
+
+      for (const cloud of clouds) drawCloud(cloud.x, cloud.y, cloud.s);
+
+      // קו קרקע
+      const lineColor = lerpColor([31, 111, 91], [168, 192, 222], n);
+      ctx.strokeStyle = lineColor;
+      ctx.globalAlpha = 0.2;
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(0, GROUND_Y);
+      ctx.lineTo(W, GROUND_Y);
+      ctx.stroke();
+
+      // חצץ ואבנים קטנות שמתגלגלות על הקרקע
+      ctx.fillStyle = lineColor;
+      for (let i = 0; i < 26; i++) {
+        const base = (i * 143) % 2600;
+        const x = ((base - (world % 2600) + 2600) % 2600) - 140;
+        const y = GROUND_Y + 14 + ((i * 29) % 18);
+        const w = 3 + ((i * 17) % 12);
+        ctx.globalAlpha = Math.max(0.05, 0.35 - (y - GROUND_Y) * 0.006);
+        ctx.fillRect(x, y, w, 2);
+      }
+      ctx.globalAlpha = 1;
+    }
+
+    function drawCactus(o) {
+      const n = nightT;
+      const body = lerpColor([47, 125, 95], [126, 170, 152], n);
+      const arm = lerpColor([35, 99, 74], [104, 146, 130], n);
+      const cx = o.x + o.w / 2;
+      const stemW = Math.max(9, Math.round(o.w * 0.44));
+      const armW = Math.max(7, Math.round(stemW * 0.7));
+
+      if (o.arm) {
+        const armY = o.y + o.h * 0.44;
+        const armH = o.h * 0.26;
+        ctx.fillStyle = arm;
+        roundRect(cx - stemW / 2 - armW * 1.9, armY + armW * 0.6, armW * 2, armW, armW / 2);
+        ctx.fill();
+        roundRect(cx - stemW / 2 - armW * 1.9, armY, armW, armH + armW * 0.6, armW / 2);
+        ctx.fill();
+        roundRect(cx + stemW / 2 - armW * 0.1, armY + armW * 0.1, armW * 2, armW, armW / 2);
+        ctx.fill();
+        roundRect(cx + stemW / 2 + armW * 1.2, armY - armH * 0.5, armW, armH + armW * 0.6, armW / 2);
+        ctx.fill();
+      }
+
+      ctx.fillStyle = body;
+      roundRect(cx - stemW / 2, o.y, stemW, o.h, stemW / 2);
+      ctx.fill();
+
+      ctx.fillStyle = "rgba(255, 255, 255, 0.22)";
+      roundRect(cx - stemW / 2 + 2, o.y + 4, Math.max(2, stemW * 0.22), o.h - 8, 2);
+      ctx.fill();
+    }
+
+    function drawBird(o) {
+      const c = lerpColor([63, 92, 82], [196, 210, 226], nightT);
+      const wing = Math.sin(frame * 0.22 + o.phase);
+      const cx = o.x + o.w / 2;
+      const cy = o.y + o.h / 2;
+      const bw = o.w * 0.36;
+      const bh = o.h * 0.26;
+
+      ctx.fillStyle = c;
+      ctx.beginPath();
+      ctx.ellipse(cx, cy, bw, bh, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // מקור
+      ctx.beginPath();
+      ctx.moveTo(cx - bw * 0.8, cy - bh * 0.2);
+      ctx.lineTo(cx - bw * 2.1, cy + bh * 0.1);
+      ctx.lineTo(cx - bw * 0.8, cy + bh * 0.6);
+      ctx.closePath();
+      ctx.fill();
+
+      // כנפיים מנופפות
+      const lift = wing * o.h * 0.45;
+      ctx.beginPath();
+      ctx.moveTo(cx - bw * 0.2, cy - bh * 0.2);
+      ctx.lineTo(cx + bw * 0.4, cy - bh - lift);
+      ctx.lineTo(cx + bw * 1.1, cy + bh * 0.1);
+      ctx.closePath();
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.moveTo(cx - bw * 0.1, cy + bh * 0.2);
+      ctx.lineTo(cx + bw * 0.5, cy + bh + lift * 0.7);
+      ctx.lineTo(cx + bw * 1.0, cy + bh * 0.4);
+      ctx.closePath();
+      ctx.fill();
+    }
+
+    function drawObstacle(o) {
+      if (o.kind === "bird") drawBird(o);
+      else drawCactus(o);
+    }
+
+    function drawBill(b) {
+      const img = b.back ? billBack : billFront;
+      const bob = Math.sin(b.float) * 3;
+      ctx.save();
+      ctx.translate(b.x + 23, b.y + bob);
+      ctx.rotate(Math.sin(b.float * 0.7) * 0.13);
+      ctx.shadowColor = "rgba(40, 70, 90, 0.22)";
+      ctx.shadowBlur = 10;
+      ctx.shadowOffsetY = 6;
+      if (img.complete && img.naturalWidth) {
+        ctx.drawImage(img, -23, -16, 46, 32);
+      } else {
+        ctx.fillStyle = "#cfe3dc";
+        roundRect(-23, -16, 46, 32, 4);
+        ctx.fill();
+      }
+      ctx.restore();
+    }
+
+    function drawPlayer() {
+      const bob = player.onGround ? Math.sin(runPhase) * 1.6 : 0;
+      const px = PLAYER_X;
+      const py = player.y;
+
+      ctx.fillStyle = "rgba(28, 36, 48, 0.14)";
+      ctx.beginPath();
+      const shrink = player.onGround ? 1 : 0.7;
+      ctx.ellipse(px + PW / 2, GROUND_Y + 4, (PW / 2 + 2) * shrink, 4 * shrink, 0, 0, Math.PI * 2);
+      ctx.fill();
+
+      // הדמות מהכניסה — פנים וחליפה; רק החליפה בצבע השחקן
+      const sprite = suitSprite(color) || (heroImg.complete && heroImg.naturalWidth ? heroImg : null);
+      if (sprite) {
+        // בהתכופפות הדמות מתכווצת ונשארת על הקרקע
+        const h = player.duck && player.onGround ? 44 : 68;
+        const ratio = heroImg.naturalWidth / heroImg.naturalHeight || 0.484;
+        const w = h * ratio;
+        const bottom = py + PH + 2 + bob * 0.4;
+        ctx.drawImage(sprite, px + PW / 2 - w / 2, bottom - h, w, h);
+      } else {
+        // גיבוי אם התמונה לא נטענה
+        ctx.fillStyle = shade(color, -0.1);
+        roundRect(px + 2, py + 10, PW - 4, PH - 10, 9);
+        ctx.fill();
+        ctx.fillStyle = shade(color, 0.3);
+        roundRect(px + PW / 2 - 11, py, 22, 16, 7);
+        ctx.fill();
+      }
+    }
+
+    function draw() {
+      drawBackground();
+
+      for (const o of obstacles) drawObstacle(o);
+      for (const b of bills) drawBill(b);
+
+      if (deadTimer > 0) {
+        ctx.globalAlpha = 0.55;
+        drawPlayer();
+        ctx.globalAlpha = 1;
+      } else {
+        drawPlayer();
+      }
+
+      // שם השחקן מתחת לדמות
+      if (started || !alive) {
+        ctx.fillStyle = "rgba(28, 36, 48, 0.4)";
+        ctx.font = "600 12px 'Segoe UI', Arial";
+        ctx.textAlign = "center";
+        ctx.fillText(playerName || "שחקן", PLAYER_X + PW / 2, GROUND_Y + 24);
+        ctx.textAlign = "right";
+      }
+    }
+
+    function loop(now) {
+      raf = requestAnimationFrame(loop);
+      if (!lastTime) lastTime = now;
+      const dt = Math.min(2.4, (now - lastTime) / STEP);
+      lastTime = now;
+
+      if (started && alive && !paused) {
+        const steps = dt > 1.4 ? 2 : 1;
+        for (let i = 0; i < steps; i++) {
+          if (started && alive && !paused) update();
+        }
+      }
+
+      if (!alive) {
+        if (deadTimer > 0) deadTimer--;
+        else if (overlay.hidden) {
+          showOverlay(
+            "נגמר הסיבוב",
+            "אספת ₪ " + Math.round(money).toLocaleString("he-IL") + " לאורך " + Math.floor(distance / 10) + " מטר. אפשר להחליף שחקן וצבע.",
+            "עוד סיבוב"
+          );
+        }
+      }
+
+      draw();
+    }
+
+    function selectColor(value) {
+      color = value;
+      colorKey = value;
+      [...swatchesEl.querySelectorAll("button")].forEach(btn => {
+        btn.setAttribute("aria-pressed", btn.dataset.color === value ? "true" : "false");
+      });
+      if (customInput.value.toLowerCase() !== value.toLowerCase()) {
+        const inPalette = PALETTE.some(p => p.value.toLowerCase() === value.toLowerCase());
+        if (inPalette) customInput.value = value;
+      }
+    }
+
+    function buildSwatches() {
+      PALETTE.forEach(p => {
+        const btn = document.createElement("button");
+        btn.type = "button";
+        btn.dataset.color = p.value;
+        btn.style.setProperty("--c", p.value);
+        btn.title = p.name;
+        btn.setAttribute("aria-label", "צבע " + p.name);
+        btn.setAttribute("aria-pressed", "false");
+        btn.addEventListener("click", () => {
+          selectColor(p.value);
+          draw();
+        });
+        swatchesEl.insertBefore(btn, customInput);
+      });
+    }
+
+    function loadPlayer(name) {
+      const colors = readColors();
+      const saved = colors[name];
+      if (typeof saved === "string" && saved) {
+        const inPalette = PALETTE.find(p => p.value.toLowerCase() === saved.toLowerCase());
+        if (inPalette) {
+          selectColor(inPalette.value);
+        } else {
+          selectColor(saved);
+          customInput.value = saved;
+        }
+      }
+      showBest();
+    }
+
+    function setKey(event, down) {
+      const key = event.key;
+      const jumping = key === " " || key === "Spacebar" || key === "ArrowUp" || key === "w" || key === "W";
+      if (jumping) {
+        if (down) {
+          event.preventDefault();
+          if (!started && alive) begin();
+          else jump();
+        }
+        return;
+      }
+      const ducking = key === "ArrowDown" || key === "s" || key === "S";
+      if (ducking) {
+        event.preventDefault();
+        duckHeld = down;
+        return;
+      }
+      if (!down) return;
+      if (key === "p" || key === "P") {
+        event.preventDefault();
+        togglePause();
+      }
+      if (key === "r" || key === "R") {
+        event.preventDefault();
+        restart();
+      }
+    }
+
+    document.addEventListener("keydown", event => {
+      if (event.target === nameInput) return;
+      setKey(event, true);
+    });
+
+    document.addEventListener("keyup", event => {
+      if (event.target === nameInput) return;
+      setKey(event, false);
+    });
+
+    window.addEventListener("blur", () => {
+      duckHeld = false;
+    });
+
+    canvas.addEventListener("pointerdown", event => {
+      event.preventDefault();
+      if (!started && alive) begin();
+      else jump();
+    });
+
+    jumpBtn.addEventListener("pointerdown", event => {
+      event.preventDefault();
+      if (!started && alive) begin();
+      else jump();
+    });
+
+    const pressDuck = event => {
+      event.preventDefault();
+      duckHeld = true;
+    };
+    const releaseDuck = event => {
+      event.preventDefault();
+      duckHeld = false;
+    };
+    duckBtn.addEventListener("pointerdown", pressDuck);
+    duckBtn.addEventListener("pointerup", releaseDuck);
+    duckBtn.addEventListener("pointerleave", releaseDuck);
+    duckBtn.addEventListener("pointercancel", releaseDuck);
+
+    startBtn.addEventListener("click", () => {
+      if (!alive) {
+        restart();
+        return;
+      }
+      if (paused) {
+        begin();
+        return;
+      }
+      begin();
+    });
+
+    nameInput.addEventListener("input", () => {
+      playerName = nameInput.value;
+      writeStore(STORE_NAME, playerName);
+      showBest();
+    });
+
+    nameInput.addEventListener("change", () => {
+      loadPlayer(playerKey());
+    });
+
+    customInput.addEventListener("input", () => {
+      selectColor(customInput.value);
+      draw();
+    });
+
+    heroImg.addEventListener("load", () => {
+      heroSource = null;
+      suitCache.clear();
+      draw();
+    });
+
+    buildSwatches();
+    playerName = readStore(STORE_NAME, "") || "";
+    nameInput.value = playerName;
+    loadPlayer(playerKey());
+    selectColor(color);
+    resetGame();
+    showSetup();
+    draw();
+    raf = requestAnimationFrame(loop);
+  </script>
+</body>
+</html>
