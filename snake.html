@@ -355,17 +355,38 @@
 
     const face = new Image();
     face.src = "assets/face.png?v=2";
-    const billFront = new Image();
-    billFront.src = "assets/bill-200-front.webp";
-    const billBack = new Image();
-    billBack.src = "assets/bill-200-back.webp";
-    const billGold = new Image();
-    billGold.src = "assets/bill-200-gold.webp?v=1";
+    // שטרות ומטבעות — כל פריט שווה בדיוק לפי הערך שנקוב עליו
+    const MONEY = [
+      { value: 200, front: "assets/bill-200-front.webp", back: "assets/bill-200-back.webp" },
+      { value: 100, front: "assets/bill-100-front.webp?v=1", back: "assets/bill-100-back.webp?v=1" },
+      { value: 50, front: "assets/bill-50-front.webp?v=1", back: "assets/bill-50-back.webp?v=1" },
+      { value: 20, front: "assets/bill-20-front.webp?v=1", back: "assets/bill-20-back.webp?v=1" },
+      { value: 10, front: "assets/coin-10.webp?v=1", back: "assets/coin-10.webp?v=1" }
+    ];
 
-    // שטר זהוב: מתחיל מ־3,600, כל שנייה יורד 600, ונעלם אחרי 6 שניות
-    const GOLD_START = 3600;
-    const GOLD_STEP = 600;
+    MONEY.forEach(item => {
+      item.frontImg = new Image();
+      item.frontImg.src = item.front;
+      item.backImg = new Image();
+      item.backImg.src = item.back;
+      item.frontImg.addEventListener("load", draw);
+      item.backImg.addEventListener("load", draw);
+    });
+
+    // שטרות זהובים: שווים פי 18 מהערך שלהם, והערך יורד בקצב קבוע עד שהם נעלמים אחרי 6 שניות
+    const GOLD_FACTOR = 18;
     const GOLD_SECONDS = 6;
+    const GOLD = [
+      { value: 200, src: "assets/bill-200-gold.webp?v=1" },
+      { value: 100, src: "assets/bill-100-gold.webp?v=1" },
+      { value: 50, src: "assets/bill-50-gold.webp?v=1" }
+    ];
+
+    GOLD.forEach(item => {
+      item.img = new Image();
+      item.img.src = item.src;
+      item.img.addEventListener("load", draw);
+    });
 
     let snake, dir, nextDir, food, score, timer, alive, started;
     let billSide = 0;
@@ -417,7 +438,8 @@
       do {
         food = {
           x: Math.floor(Math.random() * COLS),
-          y: Math.floor(Math.random() * ROWS)
+          y: Math.floor(Math.random() * ROWS),
+          kind: Math.floor(Math.random() * MONEY.length)
         };
       } while (
         snake.some(part => part.x === food.x && part.y === food.y) ||
@@ -425,10 +447,12 @@
       );
     }
 
+    // הערך יורד בצעד שווה של שישית בכל שנייה (1800, 1500, 1200...), עד שהוא נעלם אחרי 6 שניות
     function goldValue() {
       if (!gold) return 0;
+      const start = GOLD[gold.kind].value * GOLD_FACTOR;
       const seconds = Math.floor((performance.now() - gold.spawnedAt) / 1000);
-      return Math.max(0, GOLD_START - GOLD_STEP * seconds);
+      return Math.max(0, Math.round(start - (start / GOLD_SECONDS) * seconds));
     }
 
     function endGold() {
@@ -450,7 +474,12 @@
         (food && food.x === spot.x && food.y === spot.y)
       );
 
-      gold = { x: spot.x, y: spot.y, spawnedAt: performance.now() };
+      gold = {
+        x: spot.x,
+        y: spot.y,
+        spawnedAt: performance.now(),
+        kind: Math.floor(Math.random() * GOLD.length)
+      };
       eatenSinceGold = 0;
       nextGoldAt = 2 + Math.floor(Math.random() * 7);
 
@@ -500,7 +529,7 @@
 
       snake.unshift(head);
       if (eats) {
-        score += 200;
+        score += MONEY[food.kind].value;
         scoreEl.textContent = String(score);
         playCash(false);
         billSide = (billSide + 1) % 2;
@@ -531,21 +560,26 @@
       ctx.closePath();
     }
 
+    // מכניס את התמונה לתיבה בלי לעוות אותה, כך שהמטבע נשאר עגול והשטר נשאר שטוח
+    function fitImage(img, boxW, boxH) {
+      if (img.complete && img.naturalWidth) {
+        const scale = Math.min(boxW / img.naturalWidth, boxH / img.naturalHeight);
+        return { w: img.naturalWidth * scale, h: img.naturalHeight * scale };
+      }
+      return { w: boxW, h: boxW * 0.57 };
+    }
+
     function drawBill(x, y) {
-      const img = billSide === 0 ? billFront : billBack;
-      const w = cell * 0.86;
-      const h = w * 0.57;
+      const item = MONEY[food.kind];
+      const img = billSide === 0 ? item.frontImg : item.backImg;
+      const size = fitImage(img, cell * 0.9, cell * 0.56);
       ctx.save();
       ctx.translate(x + cell / 2, y + cell / 2);
       ctx.rotate(-0.18);
       if (img.complete && img.naturalWidth) {
-        roundRect(-w / 2, -h / 2, w, h, cell * 0.06);
-        ctx.save();
-        ctx.clip();
-        ctx.drawImage(img, -w / 2, -h / 2, w, h);
-        ctx.restore();
+        ctx.drawImage(img, -size.w / 2, -size.h / 2, size.w, size.h);
       } else {
-        roundRect(-w / 2, -h / 2, w, h, cell * 0.06);
+        roundRect(-size.w / 2, -size.h / 2, size.w, size.h, cell * 0.06);
         ctx.fillStyle = "#2f7fb5";
         ctx.fill();
       }
@@ -555,11 +589,11 @@
     function drawGold(x, y) {
       if (!gold) return;
       const now = performance.now();
+      const item = GOLD[gold.kind];
       const left = Math.max(0, 1 - (now - gold.spawnedAt) / (GOLD_SECONDS * 1000));
       const value = goldValue();
       const pulse = 1 + Math.sin(now / 170) * 0.045;
-      const w = cell * 0.9 * pulse;
-      const h = w * 0.57;
+      const size = fitImage(item.img, cell * 0.92 * pulse, cell * 0.58 * pulse);
       const cx = x + cell / 2;
       const cy = y + cell / 2;
 
@@ -569,14 +603,10 @@
       ctx.rotate(-0.18);
       ctx.shadowColor = "rgba(226, 163, 34, 0.9)";
       ctx.shadowBlur = cell * 0.4;
-      if (billGold.complete && billGold.naturalWidth) {
-        roundRect(-w / 2, -h / 2, w, h, cell * 0.06);
-        ctx.save();
-        ctx.clip();
-        ctx.drawImage(billGold, -w / 2, -h / 2, w, h);
-        ctx.restore();
+      if (item.img.complete && item.img.naturalWidth) {
+        ctx.drawImage(item.img, -size.w / 2, -size.h / 2, size.w, size.h);
       } else {
-        roundRect(-w / 2, -h / 2, w, h, cell * 0.06);
+        roundRect(-size.w / 2, -size.h / 2, size.w, size.h, cell * 0.06);
         ctx.fillStyle = "#d9a12a";
         ctx.fill();
       }
@@ -747,8 +777,6 @@
       else reset();
     });
     face.addEventListener("load", draw);
-    billFront.addEventListener("load", draw);
-    billBack.addEventListener("load", draw);
     reset();
     requestAnimationFrame(animate);
   </script>
