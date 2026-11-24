@@ -217,6 +217,90 @@
       .wrap header { padding-left: 58px; }
     }
 
+    /* --- לוח המובילים היומי --- */
+    .leaders {
+      margin-top: 16px;
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      padding: 16px 20px 6px;
+      box-shadow: 0 18px 50px rgba(40, 32, 20, 0.08);
+    }
+
+    .leaders h2 {
+      margin: 0 0 10px;
+      font-size: 1.05rem;
+    }
+
+    .leaders table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.95rem;
+    }
+
+    .leaders th,
+    .leaders td {
+      padding: 9px 10px;
+      border-bottom: 1px solid var(--line);
+      text-align: right;
+    }
+
+    .leaders th {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--muted);
+      background: #efe9de;
+    }
+
+    .leaders tr:last-child td { border-bottom: 0; }
+
+    .leaders td.rank {
+      width: 42px;
+      font-weight: 700;
+      color: var(--accent);
+    }
+
+    .leaders td.value {
+      width: 110px;
+      font-weight: 700;
+      text-align: left;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .leaders tr.top td { color: var(--accent); }
+
+    .leaders td.empty {
+      padding: 16px 10px;
+      text-align: center;
+      color: var(--muted);
+    }
+
+    /* --- טופס כניסה לטבלה אחרי שיא --- */
+    .record .record-label {
+      margin: 0 0 10px;
+      color: var(--ink);
+      font-weight: 700;
+    }
+
+    .record-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: center;
+    }
+
+    .record input {
+      width: min(200px, 100%);
+      border-radius: 999px;
+    }
+
+    .record .ghost {
+      background: #efe9de;
+      color: var(--muted);
+    }
+
+    .record .ghost:hover { background: #e4dccd; }
+
     .overlay {
       position: absolute;
       inset: 12px;
@@ -354,6 +438,14 @@
         <div>
           <h2 id="overlay-title">משחק דינוזאור</h2>
           <p id="overlay-text">קופצים מעל הקקטוסים, מתכופפים מתחת לציפורים ואוספים שטרות של 200, 100, 50 ו־20 ומטבע של 10. הדמות היא הבן אדם מהכניסה עם החליפה, ורק צבע החליפה משתנה.</p>
+          <form class="record" id="record-form" hidden>
+            <p class="record-label" id="record-label"></p>
+            <div class="record-row">
+              <input id="record-name" type="text" maxlength="14" placeholder="השם שלך" autocomplete="off" aria-label="שם ללוח המובילים">
+              <button type="submit">שמור</button>
+              <button type="button" class="ghost" id="record-skip">לא תודה</button>
+            </div>
+          </form>
           <div class="setup">
             <label for="pname">שם השחקן</label>
             <input type="text" id="pname" maxlength="14" placeholder="שחקן 1" autocomplete="off">
@@ -365,6 +457,15 @@
         </div>
       </div>
     </div>
+    <section class="leaders" aria-labelledby="leaders-title">
+      <h2 id="leaders-title">לוח המובילים של היום</h2>
+      <table>
+        <thead>
+          <tr><th scope="col">מקום</th><th scope="col">שם</th><th scope="col">כסף</th></tr>
+        </thead>
+        <tbody id="leaders-body"></tbody>
+      </table>
+    </section>
     <div class="pad">
       <button type="button" id="jump">קפיצה</button>
       <button type="button" id="duck">התכופפות</button>
@@ -397,6 +498,11 @@
     const moneyEl = document.getElementById("money");
     const metersEl = document.getElementById("meters");
     const bestEl = document.getElementById("best");
+    const leadersBody = document.getElementById("leaders-body");
+    const recordForm = document.getElementById("record-form");
+    const recordLabel = document.getElementById("record-label");
+    const recordName = document.getElementById("record-name");
+    const recordSkip = document.getElementById("record-skip");
     const nameInput = document.getElementById("pname");
     const swatchesEl = document.getElementById("swatches");
     const customInput = document.getElementById("custom");
@@ -754,11 +860,107 @@
       updateHud();
     }
 
+    // ---- לוח המובילים היומי: שלושת הסכומים הגבוהים של היום, נשמר בדפדפן ----
+    const LEADERS_KEY = "runboy:leaders";
+
+    function todayKey() {
+      const now = new Date();
+      return now.getFullYear() + "-" +
+        String(now.getMonth() + 1).padStart(2, "0") + "-" +
+        String(now.getDate()).padStart(2, "0");
+    }
+
+    function readLeaders() {
+      let list = [];
+      try {
+        list = JSON.parse(localStorage.getItem(LEADERS_KEY) || "[]");
+      } catch (error) {
+        return [];
+      }
+      if (!Array.isArray(list)) return [];
+      const today = todayKey();
+      return list
+        .filter(item => item && item.date === today && typeof item.name === "string" && Number.isFinite(item.score))
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 3);
+    }
+
+    function renderLeaders() {
+      const list = readLeaders();
+      leadersBody.textContent = "";
+      if (!list.length) {
+        const row = document.createElement("tr");
+        const cellEl = document.createElement("td");
+        cellEl.colSpan = 3;
+        cellEl.className = "empty";
+        cellEl.textContent = "אין עדיין שיאים היום — היו הראשונים.";
+        row.append(cellEl);
+        leadersBody.append(row);
+        return;
+      }
+      list.forEach((item, index) => {
+        const row = document.createElement("tr");
+        if (index === 0) row.className = "top";
+        const rank = document.createElement("td");
+        rank.className = "rank";
+        rank.textContent = String(index + 1);
+        const name = document.createElement("td");
+        name.textContent = item.name;
+        const value = document.createElement("td");
+        value.className = "value";
+        value.textContent = "₪ " + item.score.toLocaleString("he-IL");
+        row.append(rank, name, value);
+        leadersBody.append(row);
+      });
+    }
+
+    function qualifiesForBoard(value) {
+      if (value <= 0) return false;
+      const list = readLeaders();
+      return list.length < 3 || value > list[list.length - 1].score;
+    }
+
+    function saveLeader(name, value) {
+      const list = readLeaders();
+      const same = list.find(item => item.name === name);
+      if (same) same.score = Math.max(same.score, value);
+      else list.push({ name, score: value, date: todayKey() });
+      list.sort((a, b) => b.score - a.score);
+      try {
+        localStorage.setItem(LEADERS_KEY, JSON.stringify(list.slice(0, 3)));
+      } catch (error) {
+        /* אחסון חסום (מצב פרטי) — הטבלה פשוט לא תישמר */
+      }
+      renderLeaders();
+    }
+
     function showOverlay(title, text, buttonLabel) {
       overlayTitle.textContent = title;
       overlayText.textContent = text;
       startBtn.textContent = buttonLabel;
+      recordForm.hidden = true;
       overlay.hidden = false;
+    }
+
+    // סיום סיבוב: אם הסכום שנאסף נכנס לשלושת המקומות של היום — מציעים להקליד שם
+    function showGameOver() {
+      const value = Math.round(money);
+      showOverlay(
+        "נגמר הסיבוב",
+        "אספת ₪ " + value.toLocaleString("he-IL") + " לאורך " + Math.floor(distance / 10) + " מטר. אפשר להחליף שחקן וצבע.",
+        "עוד סיבוב"
+      );
+
+      if (!qualifiesForBoard(value)) return;
+
+      const list = readLeaders();
+      const place = list.findIndex(item => value > item.score);
+      const rank = place === -1 ? list.length : place;
+      recordLabel.textContent = rank === 0
+        ? "שיא חדש! רוצה להיכנס ללוח המובילים של היום?"
+        : "מקום " + (rank + 1) + " בלוח היומי! רוצה להיכנס?";
+      recordName.value = playerName || "";
+      recordForm.hidden = false;
     }
 
     function showSetup() {
@@ -1208,11 +1410,7 @@
       if (!alive) {
         if (deadTimer > 0) deadTimer--;
         else if (overlay.hidden) {
-          showOverlay(
-            "נגמר הסיבוב",
-            "אספת ₪ " + Math.round(money).toLocaleString("he-IL") + " לאורך " + Math.floor(distance / 10) + " מטר. אפשר להחליף שחקן וצבע.",
-            "עוד סיבוב"
-          );
+          showGameOver();
         }
       }
 
@@ -1292,12 +1490,12 @@
     }
 
     document.addEventListener("keydown", event => {
-      if (event.target === nameInput) return;
+      if (event.target === nameInput || event.target === recordName) return;
       setKey(event, true);
     });
 
     document.addEventListener("keyup", event => {
-      if (event.target === nameInput) return;
+      if (event.target === nameInput || event.target === recordName) return;
       setKey(event, false);
     });
 
@@ -1342,6 +1540,19 @@
       begin();
     });
 
+    recordForm.addEventListener("submit", event => {
+      event.preventDefault();
+      const name = (recordName.value.trim().slice(0, 14) || "אנונימי");
+      const value = Math.round(money);
+      saveLeader(name, value);
+      recordForm.hidden = true;
+      overlayText.textContent = "נרשמת בלוח המובילים עם ₪ " + value.toLocaleString("he-IL") + "!";
+    });
+
+    recordSkip.addEventListener("click", () => {
+      recordForm.hidden = true;
+    });
+
     nameInput.addEventListener("input", () => {
       playerName = nameInput.value;
       writeStore(STORE_NAME, playerName);
@@ -1369,6 +1580,7 @@
     loadPlayer(playerKey());
     selectColor(color);
     resetGame();
+    renderLeaders();
     showSetup();
     draw();
     raf = requestAnimationFrame(loop);

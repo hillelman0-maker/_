@@ -53,6 +53,111 @@
       font-size: 1.15rem;
     }
 
+    .score .best {
+      display: block;
+      margin-top: 2px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--muted);
+    }
+
+    .overlay { overflow-y: auto; }
+
+    /* --- לוח המובילים היומי --- */
+    .leaders {
+      margin-top: 16px;
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      padding: 16px 20px 6px;
+      box-shadow: 0 18px 50px rgba(40, 32, 20, 0.08);
+    }
+
+    .leaders h2 {
+      margin: 0 0 10px;
+      font-size: 1.05rem;
+    }
+
+    .leaders table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.95rem;
+    }
+
+    .leaders th,
+    .leaders td {
+      padding: 9px 10px;
+      border-bottom: 1px solid var(--line);
+      text-align: right;
+    }
+
+    .leaders th {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--muted);
+      background: #efe9de;
+    }
+
+    .leaders tr:last-child td { border-bottom: 0; }
+
+    .leaders td.rank {
+      width: 42px;
+      font-weight: 700;
+      color: var(--accent);
+    }
+
+    .leaders td.value {
+      width: 96px;
+      font-weight: 700;
+      text-align: left;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .leaders tr.top td { color: var(--accent); }
+
+    .leaders td.empty {
+      padding: 16px 10px;
+      text-align: center;
+      color: var(--muted);
+    }
+
+    /* --- טופס כניסה לטבלה אחרי שיא --- */
+    .record .record-label {
+      margin: 0 0 10px;
+      color: var(--ink);
+      font-weight: 700;
+    }
+
+    .record-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: center;
+    }
+
+    .record input {
+      width: min(210px, 100%);
+      padding: 11px 16px;
+      font: inherit;
+      color: var(--ink);
+      text-align: center;
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 999px;
+    }
+
+    .record input:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 1px;
+    }
+
+    .record .ghost {
+      background: #efe9de;
+      color: var(--muted);
+    }
+
+    .record .ghost:hover { background: #e4dccd; }
+
     .top {
       display: flex;
       align-items: center;
@@ -277,7 +382,7 @@
   <div class="wrap">
     <header>
       <h1>טטריס</h1>
-      <div class="score">ניקוד: <span id="score">0</span></div>
+      <div class="score">ניקוד: <span id="score">0</span><span class="best">שיא: <span id="best">0</span></span></div>
     </header>
     <div class="top">
       <div>שורות <b id="lines">0</b> · שלב <b id="level">1</b></div>
@@ -289,10 +394,27 @@
         <div>
           <h2 id="overlay-title">טטריס</h2>
           <p id="overlay-text">סדרו שורות שלמות כדי שהן ייעלמו</p>
+          <form class="record" id="record-form" hidden>
+            <p class="record-label" id="record-label"></p>
+            <div class="record-row">
+              <input id="record-name" type="text" maxlength="14" placeholder="השם שלך" autocomplete="off" aria-label="שם ללוח המובילים">
+              <button type="submit">שמור</button>
+              <button type="button" class="ghost" id="record-skip">לא תודה</button>
+            </div>
+          </form>
           <button type="button" id="start">התחל</button>
         </div>
       </div>
     </div>
+    <section class="leaders" aria-labelledby="leaders-title">
+      <h2 id="leaders-title">לוח המובילים של היום</h2>
+      <table>
+        <thead>
+          <tr><th scope="col">מקום</th><th scope="col">שם</th><th scope="col">ניקוד</th></tr>
+        </thead>
+        <tbody id="leaders-body"></tbody>
+      </table>
+    </section>
     <div class="pad">
       <button type="button" data-act="left" aria-label="שמאלה">←</button>
       <button type="button" data-act="rotate" aria-label="סיבוב">↻</button>
@@ -319,12 +441,18 @@
     const nextCanvas = document.getElementById("next");
     const nctx = nextCanvas.getContext("2d");
     const scoreEl = document.getElementById("score");
+    const bestEl = document.getElementById("best");
     const linesEl = document.getElementById("lines");
     const levelEl = document.getElementById("level");
     const overlay = document.getElementById("overlay");
     const overlayTitle = document.getElementById("overlay-title");
     const overlayText = document.getElementById("overlay-text");
     const startBtn = document.getElementById("start");
+    const leadersBody = document.getElementById("leaders-body");
+    const recordForm = document.getElementById("record-form");
+    const recordLabel = document.getElementById("record-label");
+    const recordName = document.getElementById("record-name");
+    const recordSkip = document.getElementById("record-skip");
 
     // הפרצוף של השחקן מוטבע על כל קובייה בלוח
     const faceImg = new Image();
@@ -452,6 +580,7 @@
       lines += cleared;
       level = Math.floor(lines / 10) + 1;
       scoreEl.textContent = String(score);
+      noteBest();
       linesEl.textContent = String(lines);
       levelEl.textContent = String(level);
     }
@@ -519,6 +648,7 @@
       }
       score += dist * 2;
       scoreEl.textContent = String(score);
+      noteBest();
       lock();
     }
 
@@ -620,10 +750,123 @@
       }
     }
 
+    // שיא עצמי — הניקוד הגבוה ביותר, נשמר בדפדפן
+    const BEST_KEY = "tetris:best";
+
+    function readBest() {
+      try {
+        const value = Number(localStorage.getItem(BEST_KEY));
+        return Number.isFinite(value) ? value : 0;
+      } catch (error) {
+        return 0;
+      }
+    }
+
+    let bestScore = readBest();
+
+    function showBest() {
+      bestEl.textContent = bestScore.toLocaleString("en-US");
+    }
+
+    function noteBest() {
+      if (score <= bestScore) return;
+      bestScore = score;
+      try {
+        localStorage.setItem(BEST_KEY, String(bestScore));
+      } catch (error) {
+        /* אין אחסון — השיא יוצג עד לרענון */
+      }
+      showBest();
+    }
+
+    // ---- לוח המובילים היומי: שלושת הניקודים הגבוהים של היום, נשמר בדפדפן ----
+    const LEADERS_KEY = "tetris:leaders";
+    const NAME_KEY = "tetris:name";
+
+    function todayKey() {
+      const now = new Date();
+      return now.getFullYear() + "-" +
+        String(now.getMonth() + 1).padStart(2, "0") + "-" +
+        String(now.getDate()).padStart(2, "0");
+    }
+
+    function readLeaders() {
+      let list = [];
+      try {
+        list = JSON.parse(localStorage.getItem(LEADERS_KEY) || "[]");
+      } catch (error) {
+        return [];
+      }
+      if (!Array.isArray(list)) return [];
+      const today = todayKey();
+      return list
+        .filter(item => item && item.date === today && typeof item.name === "string" && Number.isFinite(item.score))
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 3);
+    }
+
+    function renderLeaders() {
+      const list = readLeaders();
+      leadersBody.textContent = "";
+      if (!list.length) {
+        const row = document.createElement("tr");
+        const cellEl = document.createElement("td");
+        cellEl.colSpan = 3;
+        cellEl.className = "empty";
+        cellEl.textContent = "אין עדיין שיאים היום — היו הראשונים.";
+        row.append(cellEl);
+        leadersBody.append(row);
+        return;
+      }
+      list.forEach((item, index) => {
+        const row = document.createElement("tr");
+        if (index === 0) row.className = "top";
+        const rank = document.createElement("td");
+        rank.className = "rank";
+        rank.textContent = String(index + 1);
+        const name = document.createElement("td");
+        name.textContent = item.name;
+        const value = document.createElement("td");
+        value.className = "value";
+        value.textContent = item.score.toLocaleString("en-US");
+        row.append(rank, name, value);
+        leadersBody.append(row);
+      });
+    }
+
+    function qualifiesForBoard(value) {
+      if (value <= 0) return false;
+      const list = readLeaders();
+      return list.length < 3 || value > list[list.length - 1].score;
+    }
+
+    function saveLeader(name, value) {
+      const list = readLeaders();
+      const same = list.find(item => item.name === name);
+      if (same) same.score = Math.max(same.score, value);
+      else list.push({ name, score: value, date: todayKey() });
+      list.sort((a, b) => b.score - a.score);
+      try {
+        localStorage.setItem(LEADERS_KEY, JSON.stringify(list.slice(0, 3)));
+      } catch (error) {
+        /* אחסון חסום (מצב פרטי) — הטבלה פשוט לא תישמר */
+      }
+      renderLeaders();
+    }
+
+    function readSavedName() {
+      try {
+        return localStorage.getItem(NAME_KEY) || "";
+      } catch (error) {
+        return "";
+      }
+    }
+
     function showStart() {
       overlayTitle.textContent = "טטריס";
       overlayText.textContent = "סדרו שורות שלמות כדי שהן ייעלמו";
       startBtn.textContent = "התחל";
+      recordForm.hidden = true;
       overlay.hidden = false;
     }
 
@@ -640,6 +883,8 @@
       piece = null;
       nextPiece = null;
       scoreEl.textContent = "0";
+      showBest();
+      renderLeaders();
       linesEl.textContent = "0";
       levelEl.textContent = "1";
       nextPiece = makePiece(randomType());
@@ -666,13 +911,27 @@
       overlay.hidden = !paused;
     }
 
+    // סיום משחק: אם הניקוד נכנס לשלושת המקומות של היום — מציעים להקליד שם
     function gameOver() {
       alive = false;
       started = false;
       overlayTitle.textContent = "נגמר המשחק";
-      overlayText.textContent = "ניקוד סופי: " + score + " · " + lines + " שורות";
+      overlayText.textContent = "ניקוד סופי: " + score + " · שיא: " + bestScore + " · " + lines + " שורות";
       startBtn.textContent = "שחק שוב";
+      recordForm.hidden = true;
       overlay.hidden = false;
+
+      if (!qualifiesForBoard(score)) return;
+
+      const list = readLeaders();
+      const place = list.findIndex(item => score > item.score);
+      const rank = place === -1 ? list.length : place;
+      recordLabel.textContent = rank === 0
+        ? "שיא חדש! רוצה להיכנס ללוח המובילים של היום?"
+        : "מקום " + (rank + 1) + " בלוח היומי! רוצה להיכנס?";
+      recordName.value = readSavedName();
+      recordForm.hidden = false;
+      recordName.focus();
     }
 
     function loop(now) {
@@ -691,6 +950,7 @@
     }
 
     document.addEventListener("keydown", event => {
+      if (event.target === recordName) return;
       const key = event.key;
       if (["ArrowLeft", "ArrowRight", "ArrowDown", "ArrowUp", " ", "Spacebar"].includes(key)) {
         event.preventDefault();
@@ -735,6 +995,23 @@
       if (paused) return togglePause();
       if (alive && !started) begin();
       else reset();
+    });
+
+    recordForm.addEventListener("submit", event => {
+      event.preventDefault();
+      const name = (recordName.value.trim().slice(0, 14) || "אנונימי");
+      try {
+        localStorage.setItem(NAME_KEY, name);
+      } catch (error) {
+        /* אין אחסון — השם לא יישמר לפעם הבאה */
+      }
+      saveLeader(name, score);
+      recordForm.hidden = true;
+      overlayText.textContent = "נרשמת בלוח המובילים עם " + score.toLocaleString("en-US") + "!";
+    });
+
+    recordSkip.addEventListener("click", () => {
+      recordForm.hidden = true;
     });
 
     reset();

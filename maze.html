@@ -52,6 +52,13 @@
       color: var(--accent);
     }
 
+    .stage-label .best {
+      margin-inline-start: 10px;
+      font-size: 0.85rem;
+      font-weight: 600;
+      color: var(--muted);
+    }
+
     .board-shell {
       position: relative;
       background: var(--card);
@@ -247,7 +254,7 @@
   <div class="wrap">
     <header>
       <h1>המבוך</h1>
-      <div class="stage-label">שלב <span id="stage">1</span>/3</div>
+      <div class="stage-label">שלב <span id="stage">1</span>/3<span class="best">שיא: <span id="best">—</span></span></div>
     </header>
     <div class="board-shell">
       <canvas id="game" width="640" height="400"></canvas>
@@ -290,6 +297,7 @@
     const overlayText = document.getElementById("overlay-text");
     const startBtn = document.getElementById("start");
     const stageEl = document.getElementById("stage");
+    const bestEl = document.getElementById("best");
 
     const GRAV = 0.58;
     const JUMP = -11.6;
@@ -369,6 +377,34 @@
       ctx.closePath();
     }
 
+    // שיא עצמי — השלב הרחוק ביותר שהגעת אליו, נשמר בדפדפן
+    const BEST_KEY = "maze:best";
+
+    function readBestStage() {
+      try {
+        const value = Number(localStorage.getItem(BEST_KEY));
+        return Number.isFinite(value) ? value : 0;
+      } catch (error) {
+        return 0;
+      }
+    }
+
+    let bestStage = readBestStage();
+
+    function showBest() {
+      bestEl.textContent = bestStage > 1 ? "שלב " + bestStage : "—";
+    }
+
+    function noteBestStage(stage) {
+      if (stage <= bestStage) return;
+      bestStage = stage;
+      try {
+        localStorage.setItem(BEST_KEY, String(bestStage));
+      } catch (error) {
+        /* אין אחסון — השיא יוצג עד לרענון */
+      }
+    }
+
     function hideOverlay() {
       overlay.hidden = true;
     }
@@ -399,6 +435,8 @@
       deadTimer = 0;
       winTimer = 0;
       stageEl.textContent = String(index + 1);
+      noteBestStage(index + 1);
+      showBest();
       showStart();
       draw();
     }

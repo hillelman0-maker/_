@@ -53,6 +53,14 @@
       font-size: 1.15rem;
     }
 
+    .score .best {
+      display: block;
+      margin-top: 2px;
+      font-size: 0.82rem;
+      font-weight: 600;
+      color: var(--muted);
+    }
+
     .board-shell {
       position: relative;
       background: var(--card);
@@ -194,6 +202,7 @@
       place-items: center;
       text-align: center;
       padding: 24px;
+      overflow-y: auto;
     }
 
     .overlay[hidden] { display: none; }
@@ -238,6 +247,106 @@
     }
 
     .speeds button.is-on:hover { background: #185a4a; }
+
+    .speed-hint {
+      font-size: 0.85rem;
+      margin-top: -6px;
+    }
+
+    /* --- לוח המובילים היומי --- */
+    .leaders {
+      margin-top: 16px;
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      padding: 18px 20px 6px;
+      box-shadow: 0 18px 50px rgba(40, 32, 20, 0.08);
+    }
+
+    .leaders h2 {
+      margin: 0 0 10px;
+      font-size: 1.05rem;
+    }
+
+    .leaders table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.95rem;
+    }
+
+    .leaders th,
+    .leaders td {
+      padding: 9px 10px;
+      border-bottom: 1px solid var(--line);
+      text-align: right;
+    }
+
+    .leaders th {
+      font-size: 0.8rem;
+      font-weight: 600;
+      color: var(--muted);
+      background: #efe9de;
+    }
+
+    .leaders tr:last-child td { border-bottom: 0; }
+
+    .leaders td.rank {
+      width: 42px;
+      font-weight: 700;
+      color: var(--accent);
+    }
+
+    .leaders td.value {
+      width: 96px;
+      font-weight: 700;
+      text-align: left;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .leaders tr.top td { color: var(--accent); }
+
+    .leaders td.empty {
+      padding: 16px 10px;
+      text-align: center;
+      color: var(--muted);
+    }
+
+    /* --- טופס כניסה לטבלה אחרי שיא --- */
+    .record .record-label {
+      margin: 0 0 10px;
+      color: var(--ink);
+      font-weight: 700;
+    }
+
+    .record-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      justify-content: center;
+    }
+
+    .record input {
+      width: min(210px, 100%);
+      padding: 11px 16px;
+      font: inherit;
+      color: var(--ink);
+      text-align: center;
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 999px;
+    }
+
+    .record input:focus-visible {
+      outline: 2px solid var(--accent);
+      outline-offset: 1px;
+    }
+
+    .record .ghost {
+      background: #efe9de;
+      color: var(--muted);
+    }
+
+    .record .ghost:hover { background: #e4dccd; }
   </style>
 </head>
 <body>
@@ -257,7 +366,7 @@
   <div class="wrap">
     <header>
       <h1>סנייק</h1>
-      <div class="score">ניקוד: <span id="score">0</span></div>
+      <div class="score">ניקוד: <span id="score">0</span><span class="best">שיא: <span id="best">0</span></span></div>
     </header>
     <div class="board-shell">
       <canvas id="board" width="560" height="560"></canvas>
@@ -265,16 +374,34 @@
         <div>
         <h2 id="overlay-title">סנייק</h2>
         <p id="overlay-text">לחצו על חץ כדי להתחיל</p>
+        <form class="record" id="record-form" hidden>
+          <p class="record-label" id="record-label"></p>
+          <div class="record-row">
+            <input id="record-name" type="text" maxlength="14" placeholder="השם שלך" autocomplete="off" aria-label="שם ללוח המובילים">
+            <button type="submit">שמור</button>
+            <button type="button" class="ghost" id="record-skip">לא תודה</button>
+          </div>
+        </form>
         <div class="speeds" id="speeds" role="group" aria-label="מהירות המשחק">
           <button type="button" class="speed" data-ms="230">איטי</button>
           <button type="button" class="speed is-on" data-ms="160">רגיל</button>
           <button type="button" class="speed" data-ms="110">מהיר</button>
           <button type="button" class="speed" data-ms="70">מטורף</button>
         </div>
+        <p class="speed-hint">הניקוד נספר רק במהירות הרגילה, ולכל מהירות שיא משל עצמה</p>
         <button type="button" id="again">התחל</button>
         </div>
       </div>
     </div>
+    <section class="leaders" aria-labelledby="leaders-title">
+      <h2 id="leaders-title">לוח המובילים של היום — מהירות רגילה</h2>
+      <table>
+        <thead>
+          <tr><th scope="col">מקום</th><th scope="col">שם</th><th scope="col">ניקוד</th></tr>
+        </thead>
+        <tbody id="leaders-body"></tbody>
+      </table>
+    </section>
   </div>
   <script>
     /* סנייק - נחש על לוח 10x10. reset, spawnFood, setDir, update, draw, loop, begin. */
@@ -289,7 +416,19 @@
     const overlayText = document.getElementById("overlay-text");
     const againBtn = document.getElementById("again");
     const speedBtns = document.querySelectorAll(".speed");
+    const leadersBody = document.getElementById("leaders-body");
+    const recordForm = document.getElementById("record-form");
+    const recordLabel = document.getElementById("record-label");
+    const recordName = document.getElementById("record-name");
+    const recordSkip = document.getElementById("record-skip");
+    const bestEl = document.getElementById("best");
     let speedMs = 160;
+    const NORMAL_SPEED = 160;
+
+    // הניקוד נספר רק במהירות הרגילה — בשאר המהירויות המשחק הוא אימון בלי ניקוד
+    function scoreCounts() {
+      return speedMs === NORMAL_SPEED;
+    }
 
     // צליל "קאצ'ינג" קצר בכל אכילת שטר — מסונתז ב־WebAudio, בלי קובץ סאונד
     let audioCtx = null;
@@ -395,9 +534,148 @@
     let eatenSinceGold = 0;
     let nextGoldAt = 2 + Math.floor(Math.random() * 7);
 
+    // ---- שיא עצמי: נשמר בנפרד לכל מהירות ----
+    const BEST_KEY = "snake:best";
+
+    function readBests() {
+      try {
+        const data = JSON.parse(localStorage.getItem(BEST_KEY) || "{}");
+        return data && typeof data === "object" && !Array.isArray(data) ? data : {};
+      } catch (error) {
+        return {};
+      }
+    }
+
+    let bests = readBests();
+
+    function showBest() {
+      const value = bests[String(speedMs)];
+      bestEl.textContent = (Number.isFinite(value) ? value : 0).toLocaleString("en-US");
+    }
+
+    function noteBest() {
+      if (!scoreCounts()) return;
+      const key = String(speedMs);
+      if (score <= (bests[key] || 0)) return;
+      bests[key] = score;
+      try {
+        localStorage.setItem(BEST_KEY, JSON.stringify(bests));
+      } catch (error) {
+        /* אין אחסון — השיא יוצג עד לרענון */
+      }
+      showBest();
+    }
+
+    // ---- לוח המובילים היומי: שלושת הניקודים הגבוהים של היום, נשמר בדפדפן ----
+    const LEADERS_KEY = "snake:leaders";
+    const NAME_KEY = "snake:name";
+
+    function todayKey() {
+      const now = new Date();
+      return now.getFullYear() + "-" +
+        String(now.getMonth() + 1).padStart(2, "0") + "-" +
+        String(now.getDate()).padStart(2, "0");
+    }
+
+    function readLeaders() {
+      let list = [];
+      try {
+        list = JSON.parse(localStorage.getItem(LEADERS_KEY) || "[]");
+      } catch (error) {
+        return [];
+      }
+      if (!Array.isArray(list)) return [];
+      const today = todayKey();
+      return list
+        .filter(item => item && item.date === today && typeof item.name === "string" && Number.isFinite(item.score))
+        .sort((a, b) => b.score - a.score)
+        .slice(0, 3);
+    }
+
+    function renderLeaders() {
+      const list = readLeaders();
+      leadersBody.textContent = "";
+      if (!list.length) {
+        const row = document.createElement("tr");
+        const cellEl = document.createElement("td");
+        cellEl.colSpan = 3;
+        cellEl.className = "empty";
+        cellEl.textContent = "אין עדיין שיאים היום במהירות הרגילה — היו הראשונים.";
+        row.append(cellEl);
+        leadersBody.append(row);
+        return;
+      }
+      list.forEach((item, index) => {
+        const row = document.createElement("tr");
+        if (index === 0) row.className = "top";
+        const rank = document.createElement("td");
+        rank.className = "rank";
+        rank.textContent = String(index + 1);
+        const name = document.createElement("td");
+        name.textContent = item.name;
+        const value = document.createElement("td");
+        value.className = "value";
+        value.textContent = item.score.toLocaleString("en-US");
+        row.append(rank, name, value);
+        leadersBody.append(row);
+      });
+    }
+
+    function qualifiesForBoard(value) {
+      if (value <= 0) return false;
+      const list = readLeaders();
+      return list.length < 3 || value > list[list.length - 1].score;
+    }
+
+    function saveLeader(name, value) {
+      const list = readLeaders();
+      const same = list.find(item => item.name === name);
+      if (same) same.score = Math.max(same.score, value);
+      else list.push({ name, score: value, date: todayKey() });
+      list.sort((a, b) => b.score - a.score);
+      try {
+        localStorage.setItem(LEADERS_KEY, JSON.stringify(list.slice(0, 3)));
+      } catch (error) {
+        /* אחסון חסום (מצב פרטי) — הטבלה פשוט לא תישמר */
+      }
+      renderLeaders();
+    }
+
+    // סיום משחק: אם הניקוד נכנס לשלושת המקומות של היום — מציעים להקליד שם
+    function endGame() {
+      alive = false;
+      started = false;
+      clearInterval(timer);
+      endGold();
+      draw();
+
+      overlayTitle.textContent = "נתקעת";
+      overlayText.textContent = "הניקוד שלך: " + score;
+      againBtn.textContent = "שחק שוב";
+      recordForm.hidden = true;
+      overlay.hidden = false;
+
+      if (!scoreCounts() || !qualifiesForBoard(score)) return;
+
+      const list = readLeaders();
+      const place = list.findIndex(item => score > item.score);
+      const rank = place === -1 ? list.length : place;
+      recordLabel.textContent = rank === 0
+        ? "שיא חדש! רוצה להיכנס ללוח המובילים של היום?"
+        : "מקום " + (rank + 1) + " בלוח היומי! רוצה להיכנס?";
+      try {
+        recordName.value = localStorage.getItem(NAME_KEY) || "";
+      } catch (error) {
+        recordName.value = "";
+      }
+      recordForm.hidden = false;
+      recordName.focus();
+    }
+
     function showStart() {
       overlayTitle.textContent = "סנייק";
       overlayText.textContent = "לחצו על חץ כדי להתחיל";
+      recordForm.hidden = true;
       againBtn.textContent = "התחל";
       overlay.hidden = false;
     }
@@ -419,6 +697,7 @@
       eatenSinceGold = 0;
       nextGoldAt = 2 + Math.floor(Math.random() * 7);
       scoreEl.textContent = "0";
+      showBest();
       clearInterval(timer);
       placeFood();
       showStart();
@@ -515,22 +794,17 @@
       const body = (eats || eatsGold) ? snake : snake.slice(0, -1);
 
       if (body.some(part => part.x === head.x && part.y === head.y)) {
-        alive = false;
-        started = false;
-        clearInterval(timer);
-        endGold();
-        overlayTitle.textContent = "נתקעת";
-        overlayText.textContent = "הניקוד שלך: " + score;
-        againBtn.textContent = "שחק שוב";
-        overlay.hidden = false;
-        draw();
+        endGame();
         return;
       }
 
       snake.unshift(head);
       if (eats) {
-        score += MONEY[food.kind].value;
-        scoreEl.textContent = String(score);
+        if (scoreCounts()) {
+          score += MONEY[food.kind].value;
+          scoreEl.textContent = String(score);
+          noteBest();
+        }
         playCash(false);
         billSide = (billSide + 1) % 2;
         placeFood();
@@ -539,8 +813,11 @@
         if (!gold && eatenSinceGold >= nextGoldAt) spawnGold();
       }
       if (eatsGold) {
-        score += goldValue();
-        scoreEl.textContent = String(score);
+        if (scoreCounts()) {
+          score += goldValue();
+          scoreEl.textContent = String(score);
+          noteBest();
+        }
         playCash(true);
         endGold();
       }
@@ -765,6 +1042,11 @@
       btn.addEventListener("click", () => {
         speedMs = Number(btn.dataset.ms);
         speedBtns.forEach(other => other.classList.toggle("is-on", other === btn));
+        if (!scoreCounts()) {
+          score = 0;
+          scoreEl.textContent = "0";
+        }
+        showBest();
         if (started && alive) {
           clearInterval(timer);
           timer = setInterval(step, speedMs);
@@ -776,7 +1058,27 @@
       if (alive && !started) begin();
       else reset();
     });
+
+    recordForm.addEventListener("submit", event => {
+      event.preventDefault();
+      const name = (recordName.value.trim().slice(0, 14) || "אנונימי");
+      try {
+        localStorage.setItem(NAME_KEY, name);
+      } catch (error) {
+        /* אין אחסון — השם לא יישמר לפעם הבאה */
+      }
+      saveLeader(name, score);
+      recordForm.hidden = true;
+      overlayText.textContent = "נרשמת בלוח המובילים עם " + score.toLocaleString("en-US") + "!";
+    });
+
+    recordSkip.addEventListener("click", () => {
+      recordForm.hidden = true;
+      overlayText.textContent = "הניקוד שלך: " + score;
+    });
+
     face.addEventListener("load", draw);
+    renderLeaders();
     reset();
     requestAnimationFrame(animate);
   </script>
