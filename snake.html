@@ -403,6 +403,7 @@
       </table>
     </section>
   </div>
+  <script src="scores.js"></script>
   <script>
     /* סנייק - נחש על לוח 10x10. reset, spawnFood, setDir, update, draw, loop, begin. */
     const COLS = 10;
@@ -641,6 +642,41 @@
       renderLeaders();
     }
 
+    // ---- אונליין: הטבלה היומית והשיאים נשמרים בשרת (api/scores) ----
+    // התשובה מהשרת נכתבת חזרה לאחסון המקומי; אם השרת לא זמין (למשל בהרצה
+    // מקומית) המשחק ממשיך לעבוד מהאחסון בדפדפן בלבד.
+    const ONLINE = { game: "snake", board: String(NORMAL_SPEED) };
+    const ONLINE_BUCKETS = ["230", "160", "110", "70"];
+
+    function applyOnline(data) {
+      if (!data) return;
+      if (data.bests) {
+        Object.keys(data.bests).forEach(key => {
+          const value = Number(data.bests[key]);
+          if (Number.isFinite(value) && value > (bests[key] || 0)) bests[key] = value;
+        });
+        try {
+          localStorage.setItem(BEST_KEY, JSON.stringify(bests));
+        } catch (error) {
+          /* אין אחסון — השיא עדיין מוצג */
+        }
+        showBest();
+      }
+      if (Array.isArray(data.top)) {
+        const list = data.top.map(item => ({ name: item.name, score: item.score, date: todayKey() }));
+        try {
+          localStorage.setItem(LEADERS_KEY, JSON.stringify(list));
+        } catch (error) {
+          /* אין אחסון — הטבלה מוצגת בכל מקרה */
+        }
+        renderLeaders();
+      }
+    }
+
+    function loadOnline() {
+      OnlineScores.get(ONLINE.game, ONLINE.board, ONLINE_BUCKETS).then(applyOnline);
+    }
+
     // סיום משחק: אם הניקוד נכנס לשלושת המקומות של היום — מציעים להקליד שם
     function endGame() {
       alive = false;
@@ -654,6 +690,8 @@
       againBtn.textContent = "שחק שוב";
       recordForm.hidden = true;
       overlay.hidden = false;
+
+      if (scoreCounts()) OnlineScores.best(ONLINE.game, ONLINE.board, score).then(applyOnline);
 
       if (!scoreCounts() || !qualifiesForBoard(score)) return;
 
@@ -1068,6 +1106,7 @@
         /* אין אחסון — השם לא יישמר לפעם הבאה */
       }
       saveLeader(name, score);
+      OnlineScores.submit(ONLINE.game, ONLINE.board, name, score).then(applyOnline);
       recordForm.hidden = true;
       overlayText.textContent = "נרשמת בלוח המובילים עם " + score.toLocaleString("en-US") + "!";
     });
@@ -1079,6 +1118,7 @@
 
     face.addEventListener("load", draw);
     renderLeaders();
+    loadOnline();
     reset();
     requestAnimationFrame(animate);
   </script>

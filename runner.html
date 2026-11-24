@@ -471,6 +471,7 @@
       <button type="button" id="duck">התכופפות</button>
     </div>
   </div>
+  <script src="scores.js"></script>
   <script>
     /*
      * ראנר — רץ אינסופי בסגנון Chrome Dino, עם שחקן (suit sprite) ומכשולים.
@@ -934,6 +935,45 @@
       renderLeaders();
     }
 
+    // ---- אונליין: הטבלה היומית והשיאים נשמרים בשרת (api/scores) ----
+    // התשובה מהשרת נכתבת חזרה לאחסון המקומי; אם השרת לא זמין (למשל בהרצה
+    // מקומית) המשחק ממשיך לעבוד מהאחסון בדפדפן בלבד. השיא נשמר לפי שם השחקן,
+    // כמו הקוד המקומי.
+    const ONLINE = { game: "runner", board: "default" };
+
+    function applyOnline(data) {
+      if (!data) return;
+      if (data.bests) {
+        const local = readBest();
+        let changed = false;
+        Object.keys(data.bests).forEach(key => {
+          const value = Number(data.bests[key]);
+          const current = typeof local[key] === "number" ? local[key] : 0;
+          if (Number.isFinite(value) && value > current) {
+            local[key] = Math.round(value);
+            changed = true;
+          }
+        });
+        if (changed) {
+          writeStore(STORE_BEST, local);
+          showBest();
+        }
+      }
+      if (Array.isArray(data.top)) {
+        const list = data.top.map(item => ({ name: item.name, score: item.score, date: todayKey() }));
+        try {
+          localStorage.setItem(LEADERS_KEY, JSON.stringify(list));
+        } catch (error) {
+          /* אין אחסון — הטבלה מוצגת בכל מקרה */
+        }
+        renderLeaders();
+      }
+    }
+
+    function loadOnline() {
+      OnlineScores.get(ONLINE.game, ONLINE.board, [playerKey()]).then(applyOnline);
+    }
+
     function showOverlay(title, text, buttonLabel) {
       overlayTitle.textContent = title;
       overlayText.textContent = text;
@@ -996,6 +1036,7 @@
     function gameOver() {
       if (!alive) return;
       alive = false;
+      OnlineScores.best(ONLINE.game, playerKey(), Math.round(money)).then(applyOnline);
       started = false;
       deadTimer = 30;
       if (money > best) {
@@ -1545,6 +1586,7 @@
       const name = (recordName.value.trim().slice(0, 14) || "אנונימי");
       const value = Math.round(money);
       saveLeader(name, value);
+      OnlineScores.submit(ONLINE.game, ONLINE.board, name, value).then(applyOnline);
       recordForm.hidden = true;
       overlayText.textContent = "נרשמת בלוח המובילים עם ₪ " + value.toLocaleString("he-IL") + "!";
     });
@@ -1579,6 +1621,7 @@
     nameInput.value = playerName;
     loadPlayer(playerKey());
     selectColor(color);
+    loadOnline();
     resetGame();
     renderLeaders();
     showSetup();

@@ -368,6 +368,7 @@
       </table>
     </section>
   </div>
+  <script src="scores.js"></script>
   <script>
     /*
      * דודלג'אמפ - טיפוס אינסופי עם משטחים, קפיצים, טילים ומפלצות.
@@ -621,7 +622,42 @@
     }
 
     // סיום משחק: אם הגובה נכנס לשלושת המקומות של היום — מציעים להקליד שם
+    // ---- אונליין: הטבלה היומית והשיא נשמרים בשרת (api/scores) ----
+    // התשובה מהשרת נכתבת חזרה לאחסון המקומי; אם השרת לא זמין (למשל בהרצה
+    // מקומית) המשחק ממשיך לעבוד מהאחסון בדפדפן בלבד.
+    const ONLINE = { game: "doodle", board: "default" };
+
+    function applyOnline(data) {
+      if (!data) return;
+      if (data.bests) {
+        const value = Number(data.bests[ONLINE.board]);
+        if (Number.isFinite(value) && value > bestScore) {
+          bestScore = value;
+          try {
+            localStorage.setItem(BEST_KEY, String(bestScore));
+          } catch (error) {
+            /* אין אחסון — השיא עדיין מוצג */
+          }
+          showBest();
+        }
+      }
+      if (Array.isArray(data.top)) {
+        const list = data.top.map(item => ({ name: item.name, score: item.score, date: todayKey() }));
+        try {
+          localStorage.setItem(LEADERS_KEY, JSON.stringify(list));
+        } catch (error) {
+          /* אין אחסון — הטבלה מוצגת בכל מקרה */
+        }
+        renderLeaders();
+      }
+    }
+
+    function loadOnline() {
+      OnlineScores.get(ONLINE.game, ONLINE.board).then(applyOnline);
+    }
+
     function gameOver() {
+      OnlineScores.best(ONLINE.game, ONLINE.board, score).then(applyOnline);
       alive = false;
       started = false;
       overlayTitle.textContent = "נפלת";
@@ -999,6 +1035,7 @@
         /* אין אחסון — השם לא יישמר לפעם הבאה */
       }
       saveLeader(name, score);
+      OnlineScores.submit(ONLINE.game, ONLINE.board, name, score).then(applyOnline);
       recordForm.hidden = true;
       overlayText.textContent = "נרשמת בלוח המובילים עם גובה " + score.toLocaleString("en-US") + "!";
     });
@@ -1008,6 +1045,7 @@
     });
 
     face.addEventListener("load", draw);
+    loadOnline();
     reset();
     raf = requestAnimationFrame(loop);
   </script>

@@ -272,6 +272,7 @@
       <button type="button" data-act="right" aria-label="ימינה">→</button>
     </div>
   </div>
+  <script src="scores.js"></script>
   <script>
     /*
      * המבוך — משחק פלטפורמות בשלושה שלבים.
@@ -398,11 +399,38 @@
     function noteBestStage(stage) {
       if (stage <= bestStage) return;
       bestStage = stage;
+      syncBest();
       try {
         localStorage.setItem(BEST_KEY, String(bestStage));
       } catch (error) {
         /* אין אחסון — השיא יוצג עד לרענון */
       }
+    }
+
+    // ---- אונליין: השלב הרחוק ביותר נשמר בשרת (api/scores) ----
+    // התשובה נכתבת חזרה לאחסון המקומי; אם השרת לא זמין (למשל בהרצה מקומית)
+    // המשחק ממשיך לעבוד מהאחסון בדפדפן בלבד.
+    const ONLINE = { game: "maze", board: "default" };
+
+    function applyOnline(data) {
+      if (!data || !data.bests) return;
+      const value = Number(data.bests[ONLINE.board]);
+      if (!Number.isFinite(value) || value <= bestStage) return;
+      bestStage = value;
+      try {
+        localStorage.setItem(BEST_KEY, String(bestStage));
+      } catch (error) {
+        /* אין אחסון — השיא עדיין מוצג */
+      }
+      showBest();
+    }
+
+    function loadOnline() {
+      OnlineScores.get(ONLINE.game, ONLINE.board).then(applyOnline);
+    }
+
+    function syncBest() {
+      OnlineScores.best(ONLINE.game, ONLINE.board, bestStage).then(applyOnline);
     }
 
     function hideOverlay() {
@@ -797,6 +825,7 @@
     });
 
     face.addEventListener("load", draw);
+    loadOnline();
     loadLevel(0);
     raf = requestAnimationFrame(loop);
   </script>

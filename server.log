@@ -157,3 +157,53 @@
 127.0.0.1 - - [24/Nov/2026 13:23:33] "GET /doodle.html HTTP/1.1" 200 -
 127.0.0.1 - - [24/Nov/2026 13:23:42] "GET /runner.html HTTP/1.1" 200 -
 127.0.0.1 - - [24/Nov/2026 13:23:54] "GET /runner.html HTTP/1.1" 304 -
+127.0.0.1 - - [24/Nov/2026 13:24:43] "GET /maze.html HTTP/1.1" 304 -
+127.0.0.1 - - [24/Nov/2026 13:24:44] "GET /tetris.html HTTP/1.1" 304 -
+127.0.0.1 - - [24/Nov/2026 13:24:49] "GET /runner.html HTTP/1.1" 304 -
+127.0.0.1 - - [24/Nov/2026 13:24:49] "GET /assets/bill-100-front.webp?v=1 HTTP/1.1" 304 -
+127.0.0.1 - - [24/Nov/2026 13:24:49] "GET /assets/bill-100-back.webp?v=1 HTTP/1.1" 304 -
+127.0.0.1 - - [24/Nov/2026 13:24:49] "GET /assets/bill-50-front.webp?v=1 HTTP/1.1" 304 -
+127.0.0.1 - - [24/Nov/2026 13:24:49] "GET /assets/bill-50-back.webp?v=1 HTTP/1.1" 304 -
+127.0.0.1 - - [24/Nov/2026 13:24:49] "GET /assets/bill-20-front.webp?v=1 HTTP/1.1" 304 -
+127.0.0.1 - - [24/Nov/2026 13:24:49] "GET /assets/bill-20-back.webp?v=1 HTTP/1.1" 304 -
+127.0.0.1 - - [24/Nov/2026 13:24:49] "GET /assets/coin-10.webp?v=1 HTTP/1.1" 304 -
+127.0.0.1 - - [24/Nov/2026 13:24:51] "GET /doodle.html HTTP/1.1" 304 -
+127.0.0.1 - - [24/Nov/2026 14:23:04] "GET /snake.html HTTP/1.1" 200 -
+127.0.0.1 - - [24/Nov/2026 14:23:05] "GET /scores.js HTTP/1.1" 200 -
+127.0.0.1 - - [24/Nov/2026 14:23:05] code 404, message File not found
+127.0.0.1 - - [24/Nov/2026 14:23:05] "GET /api/scores HTTP/1.1" 404 -
+127.0.0.1 - - [24/Nov/2026 14:23:29] "GET /api/scores.js HTTP/1.1" 200 -
+127.0.0.1 - - [24/Nov/2026 14:23:46] "GET /doodle.html HTTP/1.1" 200 -
+127.0.0.1 - - [24/Nov/2026 14:23:46] "GET /scores.js HTTP/1.1" 200 -
+127.0.0.1 - - [24/Nov/2026 14:23:46] code 404, message File not found
+127.0.0.1 - - [24/Nov/2026 14:23:46] "GET /api/scores?game=doodle&board=default&player=pmwuo1u2fmmegsycq HTTP/1.1" 404 -
+127.0.0.1 - - [24/Nov/2026 14:24:08] "GET /snake.html HTTP/1.1" 200 -
+127.0.0.1 - - [24/Nov/2026 14:24:08] "GET /scores.js HTTP/1.1" 304 -
+127.0.0.1 - - [24/Nov/2026 14:24:08] code 404, message File not found
+127.0.0.1 - - [24/Nov/2026 14:24:08] "GET /api/scores?game=snake&board=160&buckets=230%2C160%2C110%2C70&player=pmwuo1u2fmmegsycq HTTP/1.1" 404 -
+127.0.0.1 - - [24/Nov/2026 14:24:08] "GET /assets/bill-100-front.webp?v=1 HTTP/1.1" 304 -
+127.0.0.1 - - [24/Nov/2026 14:24:08] "GET /assets/bill-100-back.webp?v=1 HTTP/1.1" 304 -
+127.0.0.1 - - [24/Nov/2026 14:24:08] "GET /assets/bill-50-front.webp?v=1 HTTP/1.1" 304 -
+127.0.0.1 - - [24/Nov/2026 14:24:08] "GET /assets/bill-20-front.webp?v=1 HTTP/1.1" 304 -
+127.0.0.1 - - [24/Nov/2026 14:24:08] "GET /assets/bill-50-back.webp?v=1 HTTP/1.1" 304 -
+127.0.0.1 - - [24/Nov/2026 14:24:08] "GET /assets/bill-20-back.webp?v=1 HTTP/1.1" 304 -
+127.0.0.1 - - [24/Nov/2026 14:24:08] "GET /assets/coin-10.webp?v=1 HTTP/1.1" 304 -
+127.0.0.1 - - [24/Nov/2026 14:24:08] "GET /assets/bill-100-gold.webp?v=1 HTTP/1.1" 304 -
+127.0.0.1 - - [24/Nov/2026 14:24:08] "GET /assets/bill-50-gold.webp?v=1 HTTP/1.1" 304 -
+127.0.0.1 - - [24/Nov/2026 14:24:40] "GET /api/scores.js HTTP/1.1" 200 -
+127.0.0.1 - - [24/Nov/2026 14:25:04] "GET /api/scores.js HTTP/1.1" 200 -
+127.0.0.1 - - [24/Nov/2026 14:25:09] "GET /runner.html HTTP/1.1" 200 -
+127.0.0.1 - - [24/Nov/2026 14:25:09] "GET /scores.js HTTP/1.1" 304 -
+127.0.0.1 - - [24/Nov/2026 14:25:09] code 404, message File not found
+127.0.0.1 - - [24/Nov/2026 14:25:09] "GET /api/scores?game=runner&board=default&buckets=%D7%93%D7%A0%D7%99&player=pmwuo1u2fmmegsycq HTTP/1.1" 404 -
+127.0.0.1 - - [24/Nov/2026 14:25:31] "GET /maze.html HTTP/1.1" 200 -
+127.0.0.1 - - [24/Nov/2026 14:25:31] "GET /scores.js HTTP/1.1" 304 -
+127.0.0.1 - - [24/Nov/2026 14:25:31] code 404, message File not found
+127.0.0.1 - - [24/Nov/2026 14:25:31] "GET /api/scores?game=maze&board=default&player=pmwuo1u2fmmegsycq HTTP/1.1" 404 -
+127.0.0.1 - - [24/Nov/2026 14:25:42] "GET /tetris.html HTTP/1.1" 200 -
+127.0.0.1 - - [24/Nov/2026 14:25:42] code 404, message File not found
+127.0.0.1 - - [24/Nov/2026 14:25:42] "GET /api/scores?game=tetris&board=default&player=pmwuo1u2fmmegsycq HTTP/1.1" 404 -
+127.0.0.1 - - [24/Nov/2026 14:26:28] "GET /snake.html HTTP/1.1" 200 -
+127.0.0.1 - - [24/Nov/2026 14:26:28] "GET /scores.js HTTP/1.1" 304 -
+127.0.0.1 - - [24/Nov/2026 14:26:28] code 404, message File not found
+127.0.0.1 - - [24/Nov/2026 14:26:28] "GET /api/scores?game=snake&board=160&buckets=230%2C160%2C110%2C70&player=pmwuo1u2fmmegsycq HTTP/1.1" 404 -
