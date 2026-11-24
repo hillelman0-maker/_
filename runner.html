@@ -27,7 +27,7 @@
         var(--paper);
       display: grid;
       place-items: center;
-      padding: 24px 16px;
+      padding: 24px 16px 62px;
     }
 
     .wrap {
@@ -103,17 +103,118 @@
       border-radius: 14px;
     }
 
-    .help {
-      margin: 12px 4px 0;
-      color: var(--muted);
-      line-height: 1.55;
-      font-size: 0.95rem;
+    /* --- ניווט: כפתור בית קבוע ותפריט צד למעבר בין המשחקים --- */
+    .home-btn {
+      position: fixed;
+      top: 14px;
+      left: 14px;
+      z-index: 40;
+      width: 46px;
+      height: 46px;
+      display: grid;
+      place-items: center;
+      color: var(--accent);
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      box-shadow: 0 10px 24px rgba(40, 32, 20, 0.14);
+      transition: transform 0.15s ease, background 0.15s ease, color 0.15s ease;
     }
 
-    .back {
-      color: var(--accent);
-      font-weight: 700;
-      text-decoration: none;
+    .home-btn:hover,
+    .home-btn:focus-visible {
+      transform: translateY(-2px);
+      background: var(--accent);
+      color: #fff;
+    }
+
+    .home-btn svg { width: 22px; height: 22px; }
+
+    /* במסך צר התפריט יושב בתחתית; במסך רחב הוא עובר לעמודה בצד */
+    .rail {
+      position: fixed;
+      bottom: 12px;
+      left: 50%;
+      transform: translateX(-50%);
+      z-index: 30;
+      display: flex;
+      gap: 6px;
+      padding: 6px;
+      background: rgba(255, 253, 249, 0.9);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      box-shadow: 0 12px 28px rgba(40, 32, 20, 0.12);
+      -webkit-backdrop-filter: blur(6px);
+      backdrop-filter: blur(6px);
+    }
+
+    .rail a {
+      position: relative;
+      display: block;
+      width: 34px;
+      height: 34px;
+      border-radius: 10px;
+      border: 1px solid var(--line);
+      outline-offset: 2px;
+    }
+
+    .rail a img {
+      display: block;
+      width: 100%;
+      height: 100%;
+      border-radius: 9px;
+      object-fit: cover;
+    }
+
+    .rail a:hover,
+    .rail a:focus-visible { border-color: var(--accent); }
+
+    .rail a span {
+      position: absolute;
+      bottom: calc(100% + 8px);
+      right: 50%;
+      transform: translateX(50%) translateY(4px);
+      padding: 4px 10px;
+      border-radius: 8px;
+      background: var(--ink);
+      color: #fff;
+      font-size: 0.78rem;
+      font-weight: 600;
+      white-space: nowrap;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.12s ease, transform 0.12s ease;
+    }
+
+    .rail a:hover span,
+    .rail a:focus-visible span { opacity: 1; transform: translateX(50%) translateY(0); }
+
+    @media (min-width: 900px) {
+      body { padding-right: 78px; }
+
+      .rail {
+        top: 50%;
+        bottom: auto;
+        left: auto;
+        right: 14px;
+        transform: translateY(-50%);
+        flex-direction: column;
+      }
+
+      .rail a span {
+        bottom: auto;
+        top: 50%;
+        right: calc(100% + 8px);
+        transform: translateY(-50%) translateX(4px);
+      }
+
+      .rail a:hover span,
+      .rail a:focus-visible span { transform: translateY(-50%) translateX(0); }
+    }
+
+    @media (max-width: 899px) {
+      /* מקום לכפתור הבית, כדי שלא יכסה את הכותרת */
+      .wrap header { padding-left: 58px; }
     }
 
     .overlay {
@@ -225,6 +326,19 @@
   </style>
 </head>
 <body>
+  <a class="home-btn" href="index.html" aria-label="חזרה לעמוד הבית" title="חזרה לעמוד הבית">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M3 10.5 12 3l9 7.5"></path>
+      <path d="M5.5 9.5V20h13V9.5"></path>
+      <path d="M10 20v-5.5h4V20"></path>
+    </svg>
+  </a>
+  <nav class="rail" aria-label="משחקים אחרים">
+    <a href="maze.html"><img src="assets/tile-maze.webp?v=1" alt="מבוך"><span>מבוך</span></a>
+    <a href="snake.html"><img src="assets/tile-snake.webp?v=1" alt="סנייק"><span>סנייק</span></a>
+    <a href="tetris.html"><img src="assets/tile-tetris.webp?v=1" alt="טטריס"><span>טטריס</span></a>
+    <a href="doodle.html"><img src="assets/tile-doodle.webp?v=1" alt="דודלג'אמפ"><span>דודלג'אמפ</span></a>
+  </nav>
   <div class="wrap">
     <header>
       <h1>משחק דינוזאור</h1>
@@ -255,7 +369,6 @@
       <button type="button" id="jump">קפיצה</button>
       <button type="button" id="duck">התכופפות</button>
     </div>
-    <p class="help">רווח / ↑ / W לקפיצה, ↓ / S להתכופפות, P להשהיה, R להתחלה מחדש. בדרך יש קקטוסים, להקות ציפורים, וכל 700 מטר יורד לילה עם כוכבים וירח. הדמות לובשת את החליפה מהכניסה, וכל שחקן בוחר צבע לחליפה — הצבע נשמר לפי השם. <a class="back" href="index.html">חזרה לכניסה</a></p>
   </div>
   <script>
     /*

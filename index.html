@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>ברוך הבא לאתר</title>
+  <title>BOBLIL GAMES</title>
   <style>
     :root {
       --ink: #1c2430;
@@ -66,6 +66,22 @@
       font-size: clamp(2.2rem, 5vw, 3.4rem);
       line-height: 1.15;
       letter-spacing: -0.02em;
+    }
+
+    /* כותרת המותג: אותיות לטיניות גדולות בגרדיאנט ירוק־זהב */
+    .brand {
+      direction: ltr;
+      text-align: right;
+      font-size: clamp(2.5rem, 8vw, 4.1rem);
+      font-weight: 900;
+      line-height: 0.98;
+      letter-spacing: -0.035em;
+      text-transform: uppercase;
+      background: linear-gradient(135deg, #1f6f5b 0%, #2f9b78 52%, #c9a24a 100%);
+      -webkit-background-clip: text;
+      background-clip: text;
+      color: transparent;
+      -webkit-text-fill-color: transparent;
     }
 
     p {
@@ -273,8 +289,8 @@
   <main>
     <div>
       <div class="mark">עמוד הבית</div>
-      <h1>ברוך הבא לאתר</h1>
-      <p>שמחים שאתם כאן. זהו עמוד הפתיחה של האתר, מוכן להמשך בנייה.</p>
+      <h1 class="brand">BOBLIL GAMES</h1>
+      <p>חמישה משחקי דפדפן קטנים. בחרו משחק ולחצו על התמונה כדי להתחיל.</p>
       <div class="actions">
         <a class="tile" href="maze.html" aria-label="מבוך">
           <img src="assets/tile-maze.webp?v=1" alt="מבוך" loading="lazy">
