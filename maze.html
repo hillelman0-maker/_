@@ -30,34 +30,30 @@
       padding: 24px 16px 62px;
     }
 
-    .wrap {
-      width: min(760px, 100%);
-    }
+    .wrap { width: min(760px, 100%); }
 
     header {
       display: flex;
-      align-items: center;
+      align-items: baseline;
       justify-content: space-between;
-      gap: 16px;
-      margin-bottom: 12px;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-bottom: 10px;
     }
 
-    h1 {
-      margin: 0;
-      font-size: 1.7rem;
-    }
+    h1 { margin: 0; font-size: 1.6rem; }
 
-    .stage-label {
+    .stats {
+      display: flex;
+      align-items: baseline;
+      gap: 14px;
       font-weight: 700;
-      color: var(--accent);
+      font-size: 0.95rem;
     }
 
-    .stage-label .best {
-      margin-inline-start: 10px;
-      font-size: 0.85rem;
-      font-weight: 600;
-      color: var(--muted);
-    }
+    .stats .stage { color: var(--accent); }
+    .stats .deaths { color: #b4483c; }
+    .stats .best { color: var(--muted); font-size: 0.85rem; }
 
     .board-shell {
       position: relative;
@@ -92,6 +88,25 @@
       border-radius: 14px;
     }
 
+    .bar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      margin-top: 10px;
+      font-size: 0.85rem;
+      color: var(--muted);
+    }
+
+    .bar kbd {
+      font: inherit;
+      font-size: 0.8rem;
+      padding: 1px 6px;
+      border: 1px solid var(--line);
+      border-radius: 6px;
+      background: #faf7f1;
+    }
+
     /* --- ניווט: כפתור בית קבוע ותפריט צד למעבר בין המשחקים --- */
     .home-btn {
       position: fixed;
@@ -119,7 +134,6 @@
 
     .home-btn svg { width: 22px; height: 22px; }
 
-    /* במסך צר התפריט יושב בתחתית; במסך רחב הוא עובר לעמודה בצד */
     .rail {
       position: fixed;
       bottom: 12px;
@@ -202,15 +216,101 @@
     }
 
     @media (max-width: 899px) {
-      /* מקום לכפתור הבית, כדי שלא יכסה את הכותרת */
       .wrap header { padding-left: 58px; }
     }
+
+    button {
+      border: 0;
+      background: var(--accent);
+      color: #fff;
+      font: inherit;
+      font-weight: 700;
+      padding: 10px 18px;
+      border-radius: 999px;
+      cursor: pointer;
+    }
+
+    button:hover { background: #185a4a; }
+
+    button.ghost {
+      background: transparent;
+      color: var(--accent);
+      border: 1px solid var(--line);
+      padding: 8px 14px;
+      font-size: 0.85rem;
+    }
+
+    button.ghost:hover { background: #f1ece2; }
+
+    /* --- בחירת שלבים --- */
+    .picker {
+      position: fixed;
+      inset: 0;
+      z-index: 50;
+      display: grid;
+      place-items: center;
+      padding: 20px;
+      background: rgba(28, 36, 48, 0.35);
+      -webkit-backdrop-filter: blur(3px);
+      backdrop-filter: blur(3px);
+    }
+
+    .picker[hidden] { display: none; }
+
+    .picker-card {
+      width: min(560px, 100%);
+      max-height: 86vh;
+      overflow: auto;
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      padding: 18px;
+      box-shadow: 0 24px 60px rgba(28, 36, 48, 0.24);
+    }
+
+    .picker-card header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 6px;
+    }
+
+    .picker-card h2 { margin: 0; font-size: 1.1rem; }
+
+    .world-title {
+      margin: 14px 0 6px;
+      font-size: 0.85rem;
+      font-weight: 700;
+      color: var(--muted);
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(46px, 1fr));
+      gap: 6px;
+    }
+
+    .grid button {
+      height: 42px;
+      padding: 0;
+      border-radius: 10px;
+      font-weight: 700;
+      font-size: 0.9rem;
+    }
+
+    .grid button:disabled {
+      background: #f1ece2;
+      color: #b9b1a5;
+      cursor: not-allowed;
+    }
+
+    .grid button.current { outline: 2px solid var(--accent); outline-offset: 2px; }
 
     .overlay {
       position: absolute;
       inset: 12px;
       border-radius: 14px;
-      background: rgba(255, 253, 249, 0.92);
+      background: rgba(255, 253, 249, 0.94);
       display: grid;
       place-items: center;
       text-align: center;
@@ -220,21 +320,7 @@
     .overlay[hidden] { display: none; }
 
     .overlay h2 { margin: 0 0 8px; }
-
     .overlay p { margin: 0 0 18px; color: var(--muted); }
-
-    button {
-      border: 0;
-      background: var(--accent);
-      color: #fff;
-      font: inherit;
-      font-weight: 700;
-      padding: 12px 22px;
-      border-radius: 999px;
-      cursor: pointer;
-    }
-
-    button:hover { background: #185a4a; }
   </style>
 </head>
 <body>
@@ -254,15 +340,19 @@
   <div class="wrap">
     <header>
       <h1>המבוך</h1>
-      <div class="stage-label">שלב <span id="stage">1</span>/3<span class="best">שיא: <span id="best">—</span></span></div>
+      <div class="stats">
+        <span class="stage">שלב <span id="stage">1</span>/<span id="total">25</span></span>
+        <span class="deaths">פסילות: <span id="deaths">0</span></span>
+        <span class="best">שיא: <span id="best">—</span></span>
+      </div>
     </header>
     <div class="board-shell">
       <canvas id="game" width="640" height="400"></canvas>
-      <div class="overlay" id="overlay">
+      <div class="overlay" id="overlay" hidden>
         <div>
-          <h2 id="overlay-title">המבוך</h2>
-          <p id="overlay-text">תעברו את המבוך עד הדלת. משהו בדרך יחליט להפריע.</p>
-          <button type="button" id="start">התחל</button>
+          <h2 id="overlay-title">יצאת מהמבוך!</h2>
+          <p id="overlay-text">כל עשרת העולמות. גם אלה שנראים כמו הסוף.</p>
+          <button type="button" id="overlay-btn">מהתחלה</button>
         </div>
       </div>
     </div>
@@ -271,563 +361,125 @@
       <button type="button" data-act="jump" aria-label="קפיצה">↑</button>
       <button type="button" data-act="right" aria-label="ימינה">→</button>
     </div>
+    <div class="bar">
+      <span><kbd>חצים</kbd> או <kbd>WASD</kbd> לזוז, <kbd>רווח</kbd> לקפוץ, <kbd>R</kbd> להתחלה מחדש</span>
+      <button type="button" class="ghost" id="menu-btn">בחירת שלב</button>
+    </div>
   </div>
+
+  <div class="picker" id="picker" hidden>
+    <div class="picker-card">
+      <header>
+        <h2>בחירת שלב</h2>
+        <button type="button" class="ghost" id="picker-close">סגור</button>
+      </header>
+      <div id="picker-body"></div>
+    </div>
+  </div>
+
   <script src="scores.js"></script>
+  <script src="maze-levels.js?v=15"></script>
+  <script src="maze-engine.js?v=15"></script>
   <script>
     /*
-     * המבוך — משחק פלטפורמות בשלושה שלבים.
-     *
-     * מבנה הקוד:
-     *   LEVELS        — תיאור דקלרטיבי של כל שלב (משטחים, רצפות שמתפוררות,
-     *                   קוצים, פטישים נופלים, דלת יציאה וטיפ לפתיחה).
-     *   loadLevel()   — הופך את התיאור לעצמים חיים עם מצב ריצה (rem/shake/up/timer)
-     *                   ומאפס את השחקן והמסך.
-     *   update()      — שלב לוגי אחד (16.7ms): תזוזת אויבים, תנועת השחקן,
-     *                   התנגשויות אופקיות ואנכיות, מוות והגעה ליציאה.
-     *   draw()        — ציור המצב הנוכחי בלבד; לא משנה שום נתון.
-     *   loop()        — requestAnimationFrame; מריץ 1–2 שלבי update לפי הזמן שחלף.
-     *
-     * כל המידע על השלב נמצא ב־level הנוכחי, ולכן restartLevel() פשוט טוען אותו מחדש.
+     * חיבור המנוע לממשק: תצוגת שלב/פסילות/שיא, תפריט בחירת שלבים,
+     * ושמירת השלב האחרון שנפתח (localStorage, דרך המנוע).
      */
-    const canvas = document.getElementById("game");
-    const ctx = canvas.getContext("2d");
-    const W = canvas.width;
-    const H = canvas.height;
-    const overlay = document.getElementById("overlay");
-    const overlayTitle = document.getElementById("overlay-title");
-    const overlayText = document.getElementById("overlay-text");
-    const startBtn = document.getElementById("start");
-    const stageEl = document.getElementById("stage");
-    const bestEl = document.getElementById("best");
+    (function () {
+      const stageEl = document.getElementById("stage");
+      const totalEl = document.getElementById("total");
+      const deathsEl = document.getElementById("deaths");
+      const bestEl = document.getElementById("best");
+      const picker = document.getElementById("picker");
+      const pickerBody = document.getElementById("picker-body");
+      const overlay = document.getElementById("overlay");
+      const overlayBtn = document.getElementById("overlay-btn");
 
-    const GRAV = 0.58;
-    const JUMP = -11.6;
-    const RUN = 3.8;
-    const PW = 26;
-    const PH = 32;
+      const LEVELS = window.MazeLevels || [];
+      const WORLD_NAMES = ["", "עולם 1 — בורות ורצפה בוגדנית", "עולם 2 — דוקרנים, מסורים וקירות",
+        "עולם 3 — דלתות מתעללות ושיגורים", "עולם 4 — שבירת חוקים והיפוכים", "עולם 5 — כאוס משולב",
+        "עולם 6 — קפיצות ושינויי מצב", "עולם 7 — מסורים, כדורים ומגרסות",
+        "עולם 8 — מפתחות וטריקים פסיכולוגיים", "עולם 9 — חושך, רוח וכפילים",
+        "עולם 10 — גיהנום מוחלט"];
 
-    const face = new Image();
-    face.src = "assets/face.png?v=3";
+      let current = { stage: 1, total: LEVELS.length, deaths: 0, best: 1, unlocked: 1 };
 
-    const LEVELS = [
-      {
-        name: "הרצפה",
-        start: { x: 40, y: 328 },
-        platforms: [
-          { x: 0, y: 360, w: 250, h: 40 },
-          { x: 250, y: 360, w: 90, h: 40, id: "floor" },
-          { x: 340, y: 360, w: 300, h: 40 }
-        ],
-        vanish: [{ x: 250, y: 340, w: 90, h: 20, id: "floor", delay: 300 }],
-        spikes: [],
-        slams: [],
-        goal: { x: 580, y: 310, w: 38, h: 50 },
-        tip: "הרצפה נראית יציבה. היא לא."
-      },
-      {
-        name: "המדרגות",
-        start: { x: 40, y: 328 },
-        platforms: [
-          { x: 0, y: 360, w: 640, h: 40 },
-          { x: 120, y: 300, w: 100, h: 16 },
-          { x: 280, y: 250, w: 100, h: 16 },
-          { x: 440, y: 200, w: 110, h: 16 }
-        ],
-        vanish: [],
-        spikes: [{ x: 214, y: 360, w: 72, h: 30, triggerX: 170 }],
-        slams: [],
-        goal: { x: 478, y: 150, w: 38, h: 50 },
-        tip: "משהו יורד מהתקרה. ומשהו נוסף עולה מהרצפה."
-      },
-      {
-        name: "הגשר",
-        start: { x: 30, y: 328 },
-        platforms: [
-          { x: 0, y: 360, w: 180, h: 40 },
-          { x: 180, y: 360, w: 80, h: 16, id: "b1" },
-          { x: 260, y: 360, w: 80, h: 16, id: "b2" },
-          { x: 340, y: 360, w: 300, h: 40 }
-        ],
-        vanish: [
-          { x: 180, y: 348, w: 80, h: 16, id: "b1", delay: 340 },
-          { x: 260, y: 348, w: 80, h: 16, id: "b2", delay: 340 }
-        ],
-        spikes: [{ x: 430, y: 360, w: 60, h: 32, triggerX: 380 }],
-        slams: [{ x: 350, y0: -70, y1: 300, w: 46, h: 60, triggerX: 338 }],
-        goal: { x: 580, y: 310, w: 38, h: 50 },
-        tip: "הגשר קצר. תרוצו בלי להסתכל למטה."
+      function renderPicker() {
+        pickerBody.textContent = "";
+        for (let world = 1; world <= WORLD_NAMES.length - 1; world++) {
+          const title = document.createElement("div");
+          title.className = "world-title";
+          title.textContent = WORLD_NAMES[world];
+          pickerBody.appendChild(title);
+
+          const grid = document.createElement("div");
+          grid.className = "grid";
+          LEVELS.forEach((level, index) => {
+            if (level.world !== world) return;
+            const btn = document.createElement("button");
+            btn.type = "button";
+            btn.textContent = String(index + 1);
+            btn.title = level.name;
+            btn.disabled = index + 1 > current.unlocked;
+            if (index + 1 === current.stage) btn.classList.add("current");
+            btn.addEventListener("click", () => {
+              window.MazeGame.goto(index);
+              picker.hidden = true;
+            });
+            grid.appendChild(btn);
+          });
+          pickerBody.appendChild(grid);
+        }
       }
-    ];
 
-    let level, levelIndex = 0;
-    let player, alive, started, finished, dead, deadTimer, winTimer, frame = 0;
-    let keyLeft = false, keyRight = false, jumpQueued = false;
-    let raf = 0, lastTime = 0;
+      window.addEventListener("maze:hud", event => {
+        current = event.detail;
+        stageEl.textContent = String(current.stage);
+        totalEl.textContent = String(current.total);
+        deathsEl.textContent = String(current.deaths);
+        bestEl.textContent = current.best > 1 ? "שלב " + current.best : "—";
+        if (!picker.hidden) renderPicker();
+        if (current.win) {
+          overlay.hidden = false;
+        }
+      });
 
-    function rectHit(a, b) {
-      return a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
-    }
+      document.getElementById("menu-btn").addEventListener("click", () => {
+        renderPicker();
+        picker.hidden = false;
+      });
 
-    function roundRect(x, y, w, h, r) {
-      ctx.beginPath();
-      ctx.moveTo(x + r, y);
-      ctx.arcTo(x + w, y, x + w, y + h, r);
-      ctx.arcTo(x + w, y + h, x, y + h, r);
-      ctx.arcTo(x, y + h, x, y, r);
-      ctx.arcTo(x, y, x + w, y, r);
-      ctx.closePath();
-    }
+      document.getElementById("picker-close").addEventListener("click", () => {
+        picker.hidden = true;
+      });
 
-    // שיא עצמי — השלב הרחוק ביותר שהגעת אליו, נשמר בדפדפן
-    const BEST_KEY = "maze:best";
+      picker.addEventListener("click", event => {
+        if (event.target === picker) picker.hidden = true;
+      });
 
-    function readBestStage() {
+      window.addEventListener("maze:menu", () => {
+        renderPicker();
+        picker.hidden = false;
+      });
+
+      overlayBtn.addEventListener("click", () => {
+        overlay.hidden = true;
+        window.MazeGame.goto(0);
+      });
+
+      // ממשיכים מהשלב האחרון שנפתח (המנוע שומר אותו ב־localStorage)
+      let start = 0;
       try {
-        const value = Number(localStorage.getItem(BEST_KEY));
-        return Number.isFinite(value) ? value : 0;
+        const saved = Number(localStorage.getItem("maze:unlocked"));
+        if (Number.isFinite(saved) && saved > 0) {
+          start = Math.min(saved, LEVELS.length) - 1;
+        }
       } catch (error) {
-        return 0;
-      }
-    }
-
-    let bestStage = readBestStage();
-
-    function showBest() {
-      bestEl.textContent = bestStage > 1 ? "שלב " + bestStage : "—";
-    }
-
-    function noteBestStage(stage) {
-      if (stage <= bestStage) return;
-      bestStage = stage;
-      syncBest();
-      try {
-        localStorage.setItem(BEST_KEY, String(bestStage));
-      } catch (error) {
-        /* אין אחסון — השיא יוצג עד לרענון */
-      }
-    }
-
-    // ---- אונליין: השלב הרחוק ביותר נשמר בשרת (api/scores) ----
-    // התשובה נכתבת חזרה לאחסון המקומי; אם השרת לא זמין (למשל בהרצה מקומית)
-    // המשחק ממשיך לעבוד מהאחסון בדפדפן בלבד.
-    const ONLINE = { game: "maze", board: "default" };
-
-    function applyOnline(data) {
-      if (!data || !data.bests) return;
-      const value = Number(data.bests[ONLINE.board]);
-      if (!Number.isFinite(value) || value <= bestStage) return;
-      bestStage = value;
-      try {
-        localStorage.setItem(BEST_KEY, String(bestStage));
-      } catch (error) {
-        /* אין אחסון — השיא עדיין מוצג */
-      }
-      showBest();
-    }
-
-    function loadOnline() {
-      OnlineScores.get(ONLINE.game, ONLINE.board).then(applyOnline);
-    }
-
-    function syncBest() {
-      OnlineScores.best(ONLINE.game, ONLINE.board, bestStage).then(applyOnline);
-    }
-
-    function hideOverlay() {
-      overlay.hidden = true;
-    }
-
-    function showStart() {
-      overlayTitle.textContent = "שלב " + (levelIndex + 1) + ": " + LEVELS[levelIndex].name;
-      overlayText.textContent = LEVELS[levelIndex].tip;
-      startBtn.textContent = "התחל";
-      overlay.hidden = false;
-    }
-
-    function loadLevel(index) {
-      levelIndex = index;
-      const src = LEVELS[index];
-      level = {
-        start: { x: src.start.x, y: src.start.y },
-        platforms: src.platforms.map(p => ({ x: p.x, y: p.y, w: p.w, h: p.h, id: p.id, rem: false, shake: 0 })),
-        vanish: src.vanish.map(v => ({ x: v.x, y: v.y, w: v.w, h: v.h, id: v.id, delay: v.delay, timer: -1 })),
-        spikes: src.spikes.map(s => ({ x: s.x, y: s.y, w: s.w, h: s.h, triggerX: s.triggerX, up: 0 })),
-        slams: src.slams.map(s => ({ x: s.x, y0: s.y0, y1: s.y1, y: s.y0, w: s.w, h: s.h, triggerX: s.triggerX, state: "idle", timer: 0 })),
-        goal: { x: src.goal.x, y: src.goal.y, w: src.goal.w, h: src.goal.h }
-      };
-      player = { x: level.start.x, y: level.start.y, w: PW, h: PH, vy: 0, vx: 0, onGround: false, face: 1 };
-      alive = true;
-      started = false;
-      finished = false;
-      dead = false;
-      deadTimer = 0;
-      winTimer = 0;
-      stageEl.textContent = String(index + 1);
-      noteBestStage(index + 1);
-      showBest();
-      showStart();
-      draw();
-    }
-
-    function begin() {
-      // finished/dead חייבים לחזור דרך הכפתור או R, אחרת אי אפשר לצאת מהמסך
-      if (!alive || started || finished || dead) return;
-      started = true;
-      hideOverlay();
-      lastTime = 0;
-    }
-
-    function restartLevel() {
-      loadLevel(levelIndex);
-      started = true;
-      hideOverlay();
-      lastTime = 0;
-    }
-
-    function die() {
-      if (dead || finished) return;
-      dead = true;
-      alive = false;
-      started = false;
-      deadTimer = 26;
-    }
-
-    function completeLevel() {
-      if (finished || dead) return;
-      finished = true;
-      started = false;
-      winTimer = 22;
-    }
-
-    function showDead() {
-      overlayTitle.textContent = "נפלת";
-      overlayText.textContent = "ככה זה במבוך הזה. נסו שוב.";
-      startBtn.textContent = "נסה שוב";
-      overlay.hidden = false;
-    }
-
-
-    function showLevelDone() {
-      if (levelIndex < LEVELS.length - 1) {
-        overlayTitle.textContent = "עברת את השלב!";
-        overlayText.textContent = "שלב " + (levelIndex + 2) + ": " + LEVELS[levelIndex + 1].name;
-        startBtn.textContent = "לשלב הבא";
-      } else {
-        overlayTitle.textContent = "יצאת מהמבוך!";
-        overlayText.textContent = "כל שלושת השלבים. לא רע בשביל מי שנפל עשרים פעם.";
-        startBtn.textContent = "מהתחלה";
-      }
-      overlay.hidden = false;
-    }
-
-    function update() {
-      frame++;
-
-      for (const s of level.slams) {
-        if (s.state === "idle" && player.x + PW > s.triggerX) {
-          s.state = "fall";
-        } else if (s.state === "fall") {
-          s.y += 7;
-          if (s.y >= s.y1) { s.y = s.y1; s.state = "rest"; s.timer = 55; }
-        } else if (s.state === "rest") {
-          s.timer--;
-          if (s.timer <= 0) s.state = "rise";
-        } else if (s.state === "rise") {
-          s.y -= 3.4;
-          if (s.y <= s.y0) { s.y = s.y0; s.state = "idle"; }
-        }
+        start = 0;
       }
 
-      for (const s of level.spikes) {
-        if (player.x + PW > s.triggerX && s.up < 1) s.up = Math.min(1, s.up + 0.04);
-      }
-
-      for (const v of level.vanish) {
-        if (v.timer < 0 && rectHit(player, v)) v.timer = v.delay / 16.6667;
-        if (v.timer > 0) {
-          v.timer--;
-          if (v.timer <= 0) {
-            v.timer = 0;
-            const plat = level.platforms.find(p => p.id === v.id);
-            if (plat) plat.rem = true;
-          }
-        }
-        if (v.timer > 0) {
-          const plat = level.platforms.find(p => p.id === v.id);
-          if (plat) plat.shake = Math.sin(frame * 0.9) * 2.5;
-        }
-      }
-
-      const dir = (keyRight ? 1 : 0) - (keyLeft ? 1 : 0);
-      if (dir) player.face = dir;
-      player.vx = dir * RUN;
-
-      player.x += player.vx;
-      if (player.x < 0) player.x = 0;
-      if (player.x + PW > W) player.x = W - PW;
-
-      for (const p of level.platforms) {
-        if (p.rem) continue;
-        const box = { x: player.x, y: player.y, w: PW, h: PH };
-        if (rectHit(box, p)) {
-          if (player.vx > 0) player.x = p.x - PW;
-          else if (player.vx < 0) player.x = p.x + p.w;
-        }
-      }
-
-      if (jumpQueued && player.onGround) {
-        player.vy = JUMP;
-        player.onGround = false;
-      }
-      jumpQueued = false;
-
-      player.vy = Math.min(13, player.vy + GRAV);
-      player.y += player.vy;
-      player.onGround = false;
-
-      for (const p of level.platforms) {
-        if (p.rem) continue;
-        const box = { x: player.x, y: player.y, w: PW, h: PH };
-        if (rectHit(box, p)) {
-          if (player.vy > 0) {
-            player.y = p.y - PH;
-            player.vy = 0;
-            player.onGround = true;
-          } else if (player.vy < 0) {
-            player.y = p.y + p.h;
-            player.vy = 0;
-          }
-        }
-      }
-
-      const box = { x: player.x, y: player.y, w: PW, h: PH };
-
-      for (const s of level.spikes) {
-        if (s.up <= 0.3) continue;
-        const hz = { x: s.x, y: s.y - s.h * s.up, w: s.w, h: s.h * s.up };
-        if (rectHit(box, hz)) die();
-      }
-
-      for (const s of level.slams) {
-        if (s.state === "idle") continue;
-        if (rectHit(box, { x: s.x, y: s.y, w: s.w, h: s.h })) die();
-      }
-
-      if (player.y > H + 30) die();
-
-      if (rectHit(box, level.goal)) completeLevel();
-    }
-
-    function drawSpikes(s) {
-      if (s.up <= 0.02) {
-        ctx.fillStyle = "rgba(28, 36, 48, 0.14)";
-        ctx.fillRect(s.x, s.y - 3, s.w, 3);
-        return;
-      }
-      const h = s.h * s.up;
-      const teeth = Math.max(2, Math.round(s.w / 16));
-      const tw = s.w / teeth;
-      ctx.fillStyle = "#b4483c";
-      for (let i = 0; i < teeth; i++) {
-        ctx.beginPath();
-        ctx.moveTo(s.x + i * tw, s.y);
-        ctx.lineTo(s.x + i * tw + tw / 2, s.y - h);
-        ctx.lineTo(s.x + (i + 1) * tw, s.y);
-        ctx.closePath();
-        ctx.fill();
-      }
-      ctx.fillStyle = "rgba(255, 255, 255, 0.35)";
-      for (let i = 0; i < teeth; i++) {
-        ctx.beginPath();
-        ctx.moveTo(s.x + i * tw + tw / 2, s.y - h);
-        ctx.lineTo(s.x + i * tw + tw / 2 + tw * 0.16, s.y);
-        ctx.lineTo(s.x + i * tw + tw / 2 + tw * 0.34, s.y);
-        ctx.closePath();
-        ctx.fill();
-      }
-    }
-
-    function draw() {
-      const bg = ctx.createLinearGradient(0, 0, 0, H);
-      bg.addColorStop(0, "#fbf8f2");
-      bg.addColorStop(1, "#ece2d1");
-      ctx.fillStyle = bg;
-      ctx.fillRect(0, 0, W, H);
-
-      ctx.strokeStyle = "rgba(28, 36, 48, 0.05)";
-      ctx.lineWidth = 1;
-      for (let x = 0; x < W; x += 40) {
-        ctx.beginPath();
-        ctx.moveTo(x, 0);
-        ctx.lineTo(x, H);
-        ctx.stroke();
-      }
-      for (let y = 0; y < H; y += 40) {
-        ctx.beginPath();
-        ctx.moveTo(0, y);
-        ctx.lineTo(W, y);
-        ctx.stroke();
-      }
-
-      for (const p of level.platforms) {
-        if (p.rem) continue;
-        const x = p.x + (p.shake || 0);
-        ctx.fillStyle = "#1f6f5b";
-        roundRect(x, p.y, p.w, p.h, 6);
-        ctx.fill();
-        ctx.fillStyle = "rgba(255, 255, 255, 0.3)";
-        roundRect(x + 6, p.y + 3, p.w - 12, 3, 2);
-        ctx.fill();
-        if (p.shake) {
-          ctx.fillStyle = "rgba(180, 72, 60, 0.35)";
-          ctx.fillRect(x + p.w / 2 - 12, p.y - 8, 24, 3);
-        }
-      }
-
-      for (const s of level.spikes) drawSpikes(s);
-
-      for (const s of level.slams) {
-        ctx.fillStyle = "#8a5a44";
-        roundRect(s.x, s.y, s.w, s.h, 6);
-        ctx.fill();
-        ctx.fillStyle = "rgba(255, 255, 255, 0.22)";
-        roundRect(s.x + 6, s.y + 5, s.w - 12, 4, 2);
-        ctx.fill();
-        ctx.fillStyle = "#b4483c";
-        ctx.beginPath();
-        ctx.moveTo(s.x + s.w / 2 - 9, s.y + s.h);
-        ctx.lineTo(s.x + s.w / 2 + 9, s.y + s.h);
-        ctx.lineTo(s.x + s.w / 2, s.y + s.h - 10);
-        ctx.closePath();
-        ctx.fill();
-      }
-
-      const g = level.goal;
-      ctx.fillStyle = "#c9a24a";
-      roundRect(g.x - 4, g.y - 4, g.w + 8, g.h + 4, 8);
-      ctx.fill();
-      ctx.fillStyle = "#21372f";
-      roundRect(g.x, g.y, g.w, g.h, 5);
-      ctx.fill();
-      ctx.fillStyle = "#c9a24a";
-      ctx.beginPath();
-      ctx.arc(g.x + g.w * 0.72, g.y + g.h * 0.55, 2.4, 0, Math.PI * 2);
-      ctx.fill();
-
-      if (dead) {
-        ctx.globalAlpha = 0.5;
-        ctx.fillStyle = "#b4483c";
-        roundRect(player.x, player.y + 20, PW, 10, 4);
-        ctx.fill();
-        ctx.globalAlpha = 1;
-        return;
-      }
-
-      if (face.complete && face.naturalWidth) {
-        ctx.save();
-        const bob = player.onGround ? Math.sin(frame * 0.16) * 1.4 : 0;
-        ctx.translate(player.x + PW / 2, player.y + PH / 2 + bob);
-        ctx.scale(player.face, 1);
-        const hh = PH + 5;
-        const ww = hh * (face.naturalWidth / face.naturalHeight);
-        ctx.drawImage(face, -ww / 2, -hh / 2, ww, hh);
-        ctx.restore();
-      } else {
-        ctx.fillStyle = "#c5d7e6";
-        roundRect(player.x, player.y, PW, PH, 8);
-        ctx.fill();
-      }
-    }
-
-    function loop(now) {
-      raf = requestAnimationFrame(loop);
-      if (!lastTime) lastTime = now;
-      const dt = Math.min(2.4, (now - lastTime) / 16.6667);
-      lastTime = now;
-
-      if (started && alive && !dead && !finished) {
-        const steps = dt > 1.4 ? 2 : 1;
-        for (let i = 0; i < steps; i++) {
-          if (started && alive && !dead && !finished) update();
-        }
-      }
-
-      // מציגים את המסך פעם אחת בדיוק (‎=== 0) ולא בכל פריים שאחרי ההמתנה
-      if (dead && deadTimer > 0) {
-        deadTimer--;
-        if (deadTimer === 0) showDead();
-      }
-      if (finished && winTimer > 0) {
-        winTimer--;
-        if (winTimer === 0) showLevelDone();
-      }
-
-      draw();
-    }
-
-    function setKey(event, down) {
-      const key = event.key;
-      const left = key === "ArrowLeft" || key === "a" || key === "A";
-      const right = key === "ArrowRight" || key === "d" || key === "D";
-      const jump = key === "ArrowUp" || key === " " || key === "Spacebar" || key === "w" || key === "W";
-      if (!left && !right && !jump) return;
-      event.preventDefault();
-      if (left) keyLeft = down;
-      if (right) keyRight = down;
-      if (jump && down) jumpQueued = true;
-      if (down && alive && !started) begin();
-    }
-
-    document.addEventListener("keydown", event => {
-      if (event.key === "r" || event.key === "R") {
-        restartLevel();
-        return;
-      }
-      setKey(event, true);
-    });
-    document.addEventListener("keyup", event => setKey(event, false));
-
-    document.querySelectorAll(".pad button").forEach(btn => {
-      const act = btn.dataset.act;
-      const press = () => {
-        if (!started && alive) begin();
-        if (act === "left") keyLeft = true;
-        if (act === "right") keyRight = true;
-        if (act === "jump") jumpQueued = true;
-      };
-      const release = () => {
-        if (act === "left") keyLeft = false;
-        if (act === "right") keyRight = false;
-      };
-      btn.addEventListener("pointerdown", event => { event.preventDefault(); press(); });
-      btn.addEventListener("pointerup", release);
-      btn.addEventListener("pointerleave", release);
-      btn.addEventListener("pointercancel", release);
-    });
-
-    startBtn.addEventListener("click", () => {
-      if (finished) {
-        if (levelIndex < LEVELS.length - 1) {
-          loadLevel(levelIndex + 1);
-          started = true;
-          hideOverlay();
-        } else {
-          loadLevel(0);
-        }
-        lastTime = 0;
-        return;
-      }
-      if (dead) {
-        restartLevel();
-        return;
-      }
-      begin();
-    });
-
-    face.addEventListener("load", draw);
-    loadOnline();
-    loadLevel(0);
-    raf = requestAnimationFrame(loop);
+      window.MazeGame.start(start);
+    })();
   </script>
 </body>
 </html>

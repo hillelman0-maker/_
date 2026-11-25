@@ -63,7 +63,7 @@
 
     .overlay { overflow-y: auto; }
 
-    /* --- לוח המובילים היומי --- */
+    /* --- לוח המובילים השבועי --- */
     .leaders {
       margin-top: 16px;
       background: var(--card);
@@ -374,7 +374,7 @@
     </svg>
   </a>
   <nav class="rail" aria-label="משחקים אחרים">
-    <a href="maze.html"><img src="assets/tile-maze.webp?v=1" alt="מבוך"><span>מבוך</span></a>
+    <a href="maze.html?v=5"><img src="assets/tile-maze.webp?v=1" alt="מבוך"><span>מבוך</span></a>
     <a href="snake.html"><img src="assets/tile-snake.webp?v=1" alt="סנייק"><span>סנייק</span></a>
     <a href="runner.html"><img src="assets/tile-runner.webp?v=1" alt="משחק דינוזאור"><span>משחק דינוזאור</span></a>
     <a href="doodle.html"><img src="assets/tile-doodle.webp?v=1" alt="דודלג'אמפ"><span>דודלג'אמפ</span></a>
@@ -407,7 +407,7 @@
       </div>
     </div>
     <section class="leaders" aria-labelledby="leaders-title">
-      <h2 id="leaders-title">לוח המובילים של היום</h2>
+      <h2 id="leaders-title">לוח המובילים של השבוע</h2>
       <table>
         <thead>
           <tr><th scope="col">מקום</th><th scope="col">שם</th><th scope="col">ניקוד</th></tr>
@@ -780,15 +780,17 @@
       showBest();
     }
 
-    // ---- לוח המובילים היומי: שלושת הניקודים הגבוהים של היום, נשמר בדפדפן ----
+    // ---- לוח המובילים השבועי: שלושת הניקודים הגבוהים של השבוע, נשמר בדפדפן ----
     const LEADERS_KEY = "tetris:leaders";
     const NAME_KEY = "tetris:name";
 
+    // מפתח שבועי — השבוע מתחיל ביום ראשון, לפי שעון מקומי
     function todayKey() {
       const now = new Date();
-      return now.getFullYear() + "-" +
-        String(now.getMonth() + 1).padStart(2, "0") + "-" +
-        String(now.getDate()).padStart(2, "0");
+      const start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay());
+      return start.getFullYear() + "-" +
+        String(start.getMonth() + 1).padStart(2, "0") + "-" +
+        String(start.getDate()).padStart(2, "0");
     }
 
     function readLeaders() {
@@ -814,7 +816,7 @@
         const cellEl = document.createElement("td");
         cellEl.colSpan = 3;
         cellEl.className = "empty";
-        cellEl.textContent = "אין עדיין שיאים היום — היו הראשונים.";
+        cellEl.textContent = "אין עדיין שיאים השבוע — היו הראשונים.";
         row.append(cellEl);
         leadersBody.append(row);
         return;
@@ -912,8 +914,8 @@
       overlay.hidden = !paused;
     }
 
-    // סיום משחק: אם הניקוד נכנס לשלושת המקומות של היום — מציעים להקליד שם
-    // ---- אונליין: הטבלה היומית והשיא נשמרים בשרת (api/scores) ----
+    // סיום משחק: אם הניקוד נכנס לשלושת המקומות של השבוע — מציעים להקליד שם
+    // ---- אונליין: הטבלה השבועית והשיא נשמרים בשרת (api/scores) ----
     // התשובה מהשרת נכתבת חזרה לאחסון המקומי; אם השרת לא זמין (למשל בהרצה
     // מקומית) המשחק ממשיך לעבוד מהאחסון בדפדפן בלבד.
     const ONLINE = { game: "tetris", board: "default" };
@@ -963,8 +965,8 @@
       const place = list.findIndex(item => score > item.score);
       const rank = place === -1 ? list.length : place;
       recordLabel.textContent = rank === 0
-        ? "שיא חדש! רוצה להיכנס ללוח המובילים של היום?"
-        : "מקום " + (rank + 1) + " בלוח היומי! רוצה להיכנס?";
+        ? "שיא חדש! רוצה להיכנס ללוח המובילים של השבוע?"
+        : "מקום " + (rank + 1) + " בלוח השבועי! רוצה להיכנס?";
       recordName.value = readSavedName();
       recordForm.hidden = false;
       recordName.focus();

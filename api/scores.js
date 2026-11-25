@@ -1,5 +1,5 @@
 /*
- * api/scores.js — השיאים והטבלה היומית של המשחקים, אונליין.
+ * api/scores.js — השיאים והטבלה השבועית של המשחקים, אונליין.
  *
  * רץ כ־Serverless Function בפרויקט Vercel (התיקייה api/ מזוהה אוטומטית,
  * הכתובת: /api/scores) ואין בו תלויות חיצוניות — רק fetch.
@@ -11,28 +11,33 @@
  * בלי משתנים אלה ה־API מחזיר 503, והמשחקים ממשיכים לעבוד מהאחסון המקומי.
  *
  * מבנה הנתונים ב־Redis:
- *   lb:<game>:<bucket>:<day>  sorted set — שלושת השיאים של היום (member=שם, score=ניקוד)
+ *   lb:<game>:<bucket>:<week> sorted set — שלושת השיאים של השבוע (member=שם, score=ניקוד)
  *   best:<game>:<bucket>      sorted set — השיא האישי (member=מזהה שחקן, score=ניקוד)
  * ה־bucket בסנייק הוא המהירות ("160" וכו'), כדי שלכל מהירות שיא נפרד.
  *
  * API:
  *   GET  /api/scores?game=snake&board=160&buckets=230,160,110,70&player=p1
  *   POST /api/scores  {game, board, name?, score, player}
- * התשובה: {ok, day, top:[{name, score}], rank, bests:{bucket: score}}
+ * התשובה: {ok, week, day, top:[{name, score}], rank, bests:{bucket: score}}
  */
 
 const GAMES = ["snake", "tetris", "doodle", "runner", "maze"];
 const MAX_SCORE = 10000000;
 const MAX_NAME = 14;
-const BOARD_TTL = 60 * 60 * 24 * 3;
+const BOARD_TTL = 60 * 60 * 24 * 10;
 
-// היום לפי שעון ישראל — כדי שהטבלה תתחלף בחצות אצל השחקנים ולא לפי UTC
-function dayKey() {
+// השבוע לפי שעון ישראל — מתחלף ביום ראשון בחצות אצל השחקנים, לא לפי UTC
+function weekKey() {
+  let stamp;
   try {
-    return new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jerusalem" }).format(new Date());
+    stamp = new Intl.DateTimeFormat("en-CA", { timeZone: "Asia/Jerusalem" }).format(new Date());
   } catch (error) {
-    return new Date().toISOString().slice(0, 10);
+    stamp = new Date().toISOString().slice(0, 10);
   }
+  const parts = stamp.split("-").map(Number);
+  const start = new Date(Date.UTC(parts[0], parts[1] - 1, parts[2]));
+  start.setUTCDate(start.getUTCDate() - start.getUTCDay());
+  return start.toISOString().slice(0, 10);
 }
 
 function cleanName(value) {
@@ -169,7 +174,7 @@ module.exports = async function handler(req, res) {
     if (!board) return send(res, 400, { ok: false, error: "board" });
 
     const player = cleanPlayer(source.player || "");
-    const day = dayKey();
+    const week = weekKey();
     const commands = [];
     const wanted = method === "POST" ? [board] : bucketsOf(source, board);
     let rankAt = -1;
@@ -182,12 +187,12 @@ module.exports = async function handler(req, res) {
       // GT = רק שיא גבוה יותר מחליף את הקודם, כך אותו שם לא תופס שני מקומות
       if (player) commands.push(["ZADD", bestKey(game, board), "GT", "CH", String(score), player]);
       if (name) {
-        commands.push(["ZADD", boardKey(game, board, day), "GT", "CH", String(score), name]);
+        commands.push(["ZADD", boardKey(game, board, week), "GT", "CH", String(score), name]);
         rankAt = commands.length;
-        commands.push(["ZREVRANK", boardKey(game, board, day), name]);
+        commands.push(["ZREVRANK", boardKey(game, board, week), name]);
         // נשארים רק שלושת הראשונים
-        commands.push(["ZREMRANGEBYRANK", boardKey(game, board, day), "0", "-4"]);
-        commands.push(["EXPIRE", boardKey(game, board, day), String(BOARD_TTL)]);
+        commands.push(["ZREMRANGEBYRANK", boardKey(game, board, week), "0", "-4"]);
+        commands.push(["EXPIRE", boardKey(game, board, week), String(BOARD_TTL)]);
       }
     }
 
@@ -200,7 +205,7 @@ module.exports = async function handler(req, res) {
     }
 
     const topAt = commands.length;
-    commands.push(["ZREVRANGE", boardKey(game, board, day), "0", "2", "WITHSCORES"]);
+    commands.push(["ZREVRANGE", boardKey(game, board, week), "0", "2", "WITHSCORES"]);
 
     const results = await redis(config, commands);
 
@@ -214,7 +219,8 @@ module.exports = async function handler(req, res) {
 
     return send(res, 200, {
       ok: true,
-      day,
+      week,
+      day: week,
       top: toTop(results[topAt]),
       rank: Number.isFinite(rankValue) ? rankValue + 1 : null,
       bests
