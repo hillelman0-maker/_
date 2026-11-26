@@ -321,6 +321,58 @@
 
     .overlay h2 { margin: 0 0 8px; }
     .overlay p { margin: 0 0 18px; color: var(--muted); }
+
+    /* --- ספיד ראן --- */
+    .stats .timer { color: var(--accent); font-variant-numeric: tabular-nums; }
+    .stats .timer[hidden] { display: none; }
+
+    .note { margin: 0 0 4px; font-size: 0.85rem; color: var(--muted); line-height: 1.5; }
+
+    .sr-card {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 12px;
+      margin-top: 12px;
+    }
+
+    .sr-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+    .sr-head h3 { margin: 0; font-size: 1rem; }
+    .sr-best { margin-top: 6px; font-size: 0.85rem; color: var(--muted); }
+
+    .sr-list {
+      margin: 8px 0 0;
+      padding-inline-start: 20px;
+      font-size: 0.88rem;
+      line-height: 1.6;
+    }
+
+    .sr-list li { display: flex; justify-content: space-between; gap: 10px; }
+    .sr-list .t { font-variant-numeric: tabular-nums; font-weight: 700; }
+    .sr-list .empty { list-style: none; margin-inline-start: -20px; color: var(--muted); }
+
+    .sr-online { margin-top: 10px; font-size: 0.85rem; color: var(--muted); }
+
+    .overlay-form {
+      display: flex;
+      gap: 8px;
+      justify-content: center;
+      flex-wrap: wrap;
+      margin: 0 0 14px;
+    }
+
+    .overlay-form[hidden] { display: none; }
+
+    .overlay-form input {
+      font: inherit;
+      padding: 9px 14px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      background: #faf7f1;
+      color: var(--ink);
+      min-width: 170px;
+    }
+
+    .overlay-form input:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
   </style>
 </head>
 <body>
@@ -344,6 +396,7 @@
         <span class="stage">שלב <span id="stage">1</span>/<span id="total">25</span></span>
         <span class="deaths">פסילות: <span id="deaths">0</span></span>
         <span class="best">שיא: <span id="best">—</span></span>
+        <span class="timer" id="timer" hidden>⏱ <span id="timer-val">0:00.00</span></span>
       </div>
     </header>
     <div class="board-shell">
@@ -352,6 +405,10 @@
         <div>
           <h2 id="overlay-title">יצאת מהמבוך!</h2>
           <p id="overlay-text">כל עשרת העולמות. גם אלה שנראים כמו הסוף.</p>
+          <div class="overlay-form" id="overlay-form" hidden>
+            <input id="sr-name" type="text" maxlength="14" placeholder="השם שלך" autocomplete="off" aria-label="שם ללוח השיאים">
+            <button type="button" id="sr-save">שמור שיא</button>
+          </div>
           <button type="button" id="overlay-btn">מהתחלה</button>
         </div>
       </div>
@@ -363,6 +420,7 @@
     </div>
     <div class="bar">
       <span><kbd>חצים</kbd> או <kbd>WASD</kbd> לזוז, <kbd>רווח</kbd> לקפוץ, <kbd>R</kbd> להתחלה מחדש</span>
+      <button type="button" class="ghost" id="speedrun-btn">ספיד ראן</button>
       <button type="button" class="ghost" id="menu-btn">בחירת שלב</button>
     </div>
   </div>
@@ -377,9 +435,20 @@
     </div>
   </div>
 
+  <div class="picker" id="speedrun" hidden>
+    <div class="picker-card">
+      <header>
+        <h2>ספיד ראן</h2>
+        <button type="button" class="ghost" id="speedrun-close">סגור</button>
+      </header>
+      <p class="note">ריצה מהשלב הראשון ועד האחרון בלי לעצור את השעון. פסילה לא מאפסת את הזמן — ממשיכים מאותו שלב.</p>
+      <div id="speedrun-body"></div>
+    </div>
+  </div>
+
   <script src="scores.js"></script>
-  <script src="maze-levels.js?v=15"></script>
-  <script src="maze-engine.js?v=15"></script>
+  <script src="maze-levels.js?v=19"></script>
+  <script src="maze-engine.js?v=17"></script>
   <script>
     /*
      * חיבור המנוע לממשק: תצוגת שלב/פסילות/שיא, תפריט בחירת שלבים,
@@ -394,6 +463,15 @@
       const pickerBody = document.getElementById("picker-body");
       const overlay = document.getElementById("overlay");
       const overlayBtn = document.getElementById("overlay-btn");
+      const overlayTitle = document.getElementById("overlay-title");
+      const overlayText = document.getElementById("overlay-text");
+      const overlayForm = document.getElementById("overlay-form");
+      const srName = document.getElementById("sr-name");
+      const srSave = document.getElementById("sr-save");
+      const timerEl = document.getElementById("timer");
+      const timerVal = document.getElementById("timer-val");
+      const speedrunEl = document.getElementById("speedrun");
+      const speedrunBody = document.getElementById("speedrun-body");
 
       const LEVELS = window.MazeLevels || [];
       const WORLD_NAMES = ["", "עולם 1 — בורות ורצפה בוגדנית", "עולם 2 — דוקרנים, מסורים וקירות",
@@ -432,6 +510,132 @@
         }
       }
 
+      /* ---------- ספיד ראן: 25 או 50 שלבים, טיימר וטבלת שיאים ---------- */
+
+      const SR_LIMITS = [25, 50];
+      // מה שנשמר בשרת הוא 10,000,000 פחות הזמן (במילישניות), כדי שהמהיר יהיה ראשון
+      const SR_INVERT = 10000000;
+      const SR_NAME_KEY = "maze:name";
+      let lastRun = null;
+      let speedrunResult = null;
+
+      function fmtTime(ms) {
+        const total = Math.max(0, Math.round(Number(ms) || 0));
+        const minutes = Math.floor(total / 60000);
+        const seconds = Math.floor((total % 60000) / 1000);
+        const cents = Math.floor((total % 1000) / 10);
+        return minutes + ":" + String(seconds).padStart(2, "0") + "." + String(cents).padStart(2, "0");
+      }
+
+      function srKey(limit) {
+        return "maze:sr" + limit;
+      }
+
+      function readBoard(limit) {
+        try {
+          const raw = JSON.parse(localStorage.getItem(srKey(limit)) || "[]");
+          if (!Array.isArray(raw)) return [];
+          return raw
+            .filter(entry => entry && typeof entry.name === "string" && Number.isFinite(entry.ms))
+            .sort((a, b) => a.ms - b.ms)
+            .slice(0, 5);
+        } catch (error) {
+          return [];
+        }
+      }
+
+      function saveBoard(limit, entry) {
+        const list = readBoard(limit).concat([entry]).sort((a, b) => a.ms - b.ms).slice(0, 5);
+        try {
+          localStorage.setItem(srKey(limit), JSON.stringify(list));
+        } catch (error) {
+          /* אין אחסון — התוצאה תישאר על המסך */
+        }
+        return list;
+      }
+
+      function renderSpeedrun() {
+        speedrunBody.textContent = "";
+        const snapshot = window.MazeGame && window.MazeGame.snapshot ? window.MazeGame.snapshot() : null;
+
+        SR_LIMITS.forEach(limit => {
+          const card = document.createElement("div");
+          card.className = "sr-card";
+
+          const head = document.createElement("div");
+          head.className = "sr-head";
+          const title = document.createElement("h3");
+          title.textContent = "עד שלב " + limit;
+          const start = document.createElement("button");
+          start.type = "button";
+          start.textContent = "התחל ריצה";
+          start.addEventListener("click", () => {
+            speedrunEl.hidden = true;
+            overlay.hidden = true;
+            overlayForm.hidden = true;
+            speedrunResult = null;
+            lastRun = null;
+            window.MazeGame.speedrun(limit);
+          });
+          head.append(title, start);
+          card.appendChild(head);
+
+          const board = readBoard(limit);
+          const best = document.createElement("div");
+          best.className = "sr-best";
+          best.textContent = board.length
+            ? "השיא שלך: " + fmtTime(board[0].ms)
+            : "עוד אין שיא — זה הזמן לקבוע אחד.";
+          card.appendChild(best);
+
+          const list = document.createElement("ol");
+          list.className = "sr-list";
+          if (!board.length) {
+            const empty = document.createElement("li");
+            empty.className = "empty";
+            empty.textContent = "אין עדיין תוצאות.";
+            list.appendChild(empty);
+          } else {
+            board.forEach(entry => {
+              const li = document.createElement("li");
+              const who = document.createElement("span");
+              who.textContent = entry.name;
+              const when = document.createElement("span");
+              when.className = "t";
+              when.textContent = fmtTime(entry.ms);
+              li.append(who, when);
+              list.appendChild(li);
+            });
+          }
+          card.appendChild(list);
+
+          const online = document.createElement("div");
+          online.className = "sr-online";
+          card.appendChild(online);
+          if (window.OnlineScores) {
+            window.OnlineScores.get("maze", "sr" + limit, []).then(data => {
+              if (!data || !data.top || !data.top.length) return;
+              const rows = data.top.map(item => item.name + " " + fmtTime(SR_INVERT - item.score));
+              online.textContent = "טבלה שבועית: " + rows.join(" · ");
+            }).catch(() => {});
+          }
+
+          speedrunBody.appendChild(card);
+        });
+
+        if (snapshot && snapshot.run && !snapshot.run.done) {
+          const stop = document.createElement("button");
+          stop.type = "button";
+          stop.className = "ghost";
+          stop.textContent = "בטל ריצה פעילה";
+          stop.addEventListener("click", () => {
+            window.MazeGame.stopSpeedrun();
+            speedrunEl.hidden = true;
+          });
+          speedrunBody.appendChild(stop);
+        }
+      }
+
       window.addEventListener("maze:hud", event => {
         current = event.detail;
         stageEl.textContent = String(current.stage);
@@ -440,9 +644,78 @@
         bestEl.textContent = current.best > 1 ? "שלב " + current.best : "—";
         if (!picker.hidden) renderPicker();
         if (current.win) {
+          if (!speedrunResult) {
+            overlayTitle.textContent = "יצאת מהמבוך!";
+            overlayText.textContent = "כל עשרת העולמות. גם אלה שנראים כמו הסוף.";
+            overlayForm.hidden = true;
+            overlayBtn.textContent = "מהתחלה";
+          }
           overlay.hidden = false;
         }
       });
+
+      window.addEventListener("maze:speedrun", event => {
+        lastRun = event.detail || null;
+        speedrunResult = lastRun;
+        if (!lastRun) return;
+        overlay.hidden = false;
+        overlayTitle.textContent = "סיימת ספיד ראן " + lastRun.limit + "!";
+        overlayText.textContent = "הזמן שלך: " + fmtTime(lastRun.ms);
+        overlayBtn.textContent = "סגור";
+        overlayForm.hidden = false;
+        srSave.disabled = false;
+        srSave.textContent = "שמור שיא";
+        let saved = "";
+        try {
+          saved = localStorage.getItem(SR_NAME_KEY) || "";
+        } catch (error) {
+          saved = "";
+        }
+        srName.value = saved;
+      });
+
+      srSave.addEventListener("click", () => {
+        if (!lastRun) return;
+        const name = srName.value.trim().slice(0, 14) || "אנונימי";
+        try {
+          localStorage.setItem(SR_NAME_KEY, name);
+        } catch (error) {
+          /* אין אחסון — השם לא יישמר לריצה הבאה */
+        }
+        saveBoard(lastRun.limit, { name, ms: lastRun.ms, at: Date.now() });
+        if (window.OnlineScores) {
+          window.OnlineScores.submit("maze", "sr" + lastRun.limit, name, SR_INVERT - lastRun.ms).catch(() => {});
+        }
+        srSave.textContent = "נשמר ✓";
+        srSave.disabled = true;
+        renderSpeedrun();
+      });
+
+      document.getElementById("speedrun-btn").addEventListener("click", () => {
+        renderSpeedrun();
+        speedrunEl.hidden = false;
+      });
+
+      document.getElementById("speedrun-close").addEventListener("click", () => {
+        speedrunEl.hidden = true;
+      });
+
+      speedrunEl.addEventListener("click", event => {
+        if (event.target === speedrunEl) speedrunEl.hidden = true;
+      });
+
+      function paintTimer() {
+        const run = window.MazeGame.snapshot ? window.MazeGame.snapshot().run : null;
+        if (run && !run.done) {
+          timerEl.hidden = false;
+          timerVal.textContent = fmtTime(run.ms);
+        } else {
+          timerEl.hidden = true;
+        }
+        requestAnimationFrame(paintTimer);
+      }
+
+      requestAnimationFrame(paintTimer);
 
       document.getElementById("menu-btn").addEventListener("click", () => {
         renderPicker();
@@ -464,6 +737,13 @@
 
       overlayBtn.addEventListener("click", () => {
         overlay.hidden = true;
+        if (speedrunResult) {
+          speedrunResult = null;
+          lastRun = null;
+          overlayForm.hidden = true;
+          window.MazeGame.stopSpeedrun();
+          return;
+        }
         window.MazeGame.goto(0);
       });
 

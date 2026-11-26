@@ -52,9 +52,8 @@ globalThis.requestAnimationFrame = cb => { rafQueue.push(cb); return rafQueue.le
 
 const load = f => (0, eval)(readFileSync(f, "utf8"));
 load("maze-levels.js");
-// עוקף בדיקה בלבד: חושף את העולם הפנימי כדי לקרוא את מצב המתגים
 const engineSrc = readFileSync("maze-engine.js", "utf8")
-  .replace("window.MazeGame = {\n    start(index) {", "window.__dbg = () => level;\n  window.MazeGame = {\n    start(index) {");
+  .replace(/window\.MazeGame = \{/g, "window.__dbg = () => level;\n  window.__player = () => player;\n  window.MazeGame = {");
 (0, eval)(engineSrc);
 
 let clock = 0;
@@ -79,12 +78,11 @@ window.MazeGame.start(25);
 tick(2);
 const before = window.__dbg();
 console.log("start: group =", before.toggleGroup, "timer =", before.toggleTimer);
-key("keydown", "ArrowUp"); // קפיצה (מחזיקים לחוץ = קפיצה מלאה)
+key("keydown", "ArrowUp");
 tick(1);
 const afterJump = window.__dbg();
-console.log("after jump frame: group =", afterJump.toggleGroup, "timer =", afterJump.toggleTimer, "y =", snap().y);
+console.log("after jump: group =", afterJump.toggleGroup, "timer =", afterJump.toggleTimer);
 key("keyup", "ArrowUp");
-
 const timeline = [];
 for (let i = 0; i < 14; i++) {
   tick(1);
@@ -97,26 +95,77 @@ console.log("frames -> group:", timeline.join(" "));
 window.MazeGame.start(45);
 tick(2);
 const b46 = window.__dbg();
-console.log("stage46 start: group =", b46.toggleGroup, "timer =", b46.toggleTimer,
-  "toggleOnJump =", b46.def.toggleOnJump, "flipOnJump =", b46.def.flipOnJump, "state =", snap().state);
-key("keydown", "ArrowUp");
-tick(1);
-console.log("stage46 after jump: group =", window.__dbg().toggleGroup, "timer =", window.__dbg().toggleTimer, "y =", snap().y);
-tick(1);
-console.log("stage46 next frame: group =", window.__dbg().toggleGroup, "timer =", window.__dbg().toggleTimer, "y =", snap().y);
-key("keyup", "ArrowUp");
+console.log("stage46: toggleOnJump =", b46.def.toggleOnJump, "delay =", b46.def.toggleDelay, "state =", snap().state);
 
-// --- 3. כל 50 השלבים נטענים ורצים ---
-let problems = [];
-for (let i = 0; i < levels.length; i++) {
-  try {
-    window.MazeGame.start(i);
-    tick(3);
-    const s0 = snap();
-    tick(60);
-    if (snap().state === "dead") problems.push(`${i + 1}:death`);
-  } catch (e) {
-    problems.push(`${i + 1}:${e.message}`);
-  }
+// --- 3. שלב 27: autoJump, solvable ---
+window.MazeGame.start(26);
+tick(2);
+const bf27 = window.__dbg();
+console.log("stage27 autoJump:", bf27.def.autoJump, "| solids:", bf27.solids.map(s => [s.x, s.y, s.w, s.h]));
+console.log("stage27 spikes:", bf27.spikes.map(s => [s.x, s.y, s.w, s.h, s.dir]));
+
+const RUNP = 3.8, GRAVP = 0.58, PWP = 26, PHP = 32;
+const SPIKES = bf27.spikes.map(s => ({ x: s.x, y: 352 - s.h, w: s.w, h: s.h }));
+const GOAL = bf27.goal;
+const ovp = (a, b) => a.x < b.x + b.w && a.x + a.w > b.x && a.y < b.y + b.h && a.y + a.h > b.y;
+const pbox = s => ({ x: s.x, y: s.y, w: PWP, h: PHP });
+function pstep(s, d) {
+  const n = { x: Math.max(0, Math.min(640 - PWP, s.x + d * RUNP)), y: s.y, vy: s.vy + GRAVP, landed: false };
+  n.y = s.y + n.vy;
+  if (n.y + PHP >= 352 && n.vy > 0) { n.y = 352 - PHP; n.vy = 0; n.landed = true; }
+  if (n.landed) n.vy = -11;
+  return n;
 }
-console.log("50 levels:", problems.length ? problems.join(", ") : "none");
+const pdead = n => SPIKES.some(b => ovp(pbox(n), b));
+function landingFor(s, d) {
+  let cur = s;
+  for (let i = 0; i < 60; i++) {
+    const n = pstep(cur, d);
+    if (pdead(n)) return { ok: false };
+    if (n.landed) return { ok: true, x: n.x };
+    cur = n;
+  }
+  return { ok: false };
+}
+
+let dirNow = 0;
+const setDir = d => {
+  if (d === dirNow) return;
+  key("keyup", "ArrowLeft"); key("keyup", "ArrowRight");
+  if (d > 0) key("keydown", "ArrowRight");
+  if (d < 0) key("keydown", "ArrowLeft");
+  dirNow = d;
+};
+
+let s27 = null, landed = [];
+for (let f = 0; f < 900; f++) {
+  const st = snap();
+  if (st.state !== "play") { s27 = st; break; }
+  const p = window.__player();
+  const me = { x: p.x, y: p.y, vy: p.vy };
+  if (landed.length === 0 || f === 0) landed.push(Math.round(me.x));
+  let best = null;
+  for (const d of [1, 0, -1]) {
+    const r = landingFor(me, d);
+    if (!r.ok) continue;
+    if (!best || r.x > best.x) best = { d, x: r.x };
+  }
+  setDir(best ? best.d : 0);
+  tick(1);
+  const after = window.__player();
+  if (after.vy === -11 && Math.abs(after.x - me.x) < 4) landed.push(Math.round(after.x));
+  s27 = snap();
+}
+console.log("stage27 result:", s27.state, "x=", Math.round(s27.x), "frame=", s27.frame, "| landings:", landed.slice(0, 8).join(","));
+
+// sanity: holding right dies
+window.MazeGame.start(26);
+tick(2);
+setDir(1);
+let died = null;
+for (let f = 0; f < 200; f++) {
+  tick(1);
+  const st = snap();
+  if (st.state !== "play") { died = st; break; }
+}
+console.log("stage27 hold-right:", died ? died.state : "survived", died ? "x=" + Math.round(died.x) : "");

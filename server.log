@@ -545,3 +545,5 @@
 127.0.0.1 - - [25/Nov/2026 12:33:09] "GET /api/scores?game=maze&board=default&player=pmwuo1u2fmmegsycq HTTP/1.1" 404 -
 127.0.0.1 - - [25/Nov/2026 12:37:52] code 501, message Unsupported method ('POST')
 127.0.0.1 - - [25/Nov/2026 12:37:52] "POST /api/scores?game=maze&board=default&player=pmwuo1u2fmmegsycq HTTP/1.1" 501 -
+127.0.0.1 - - [25/Nov/2026 16:52:57] code 501, message Unsupported method ('POST')
+127.0.0.1 - - [25/Nov/2026 16:52:57] "POST /api/scores?game=maze&board=default&player=pmwuo1u2fmmegsycq HTTP/1.1" 501 -

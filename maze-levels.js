@@ -375,14 +375,14 @@ window.MazeLevels = [
     name: "קפיצה אוטומטית",
     hint: "אתה קופץ לבד. רק תכוון את השיא.",
     world: 6,
-    spawn: [40, 320],
+    spawn: [100, 320],
     autoJump: true,
-    solid: [[0, tile(11), tile(6), 48], [tile(7), tile(11), tile(5), 48], [tile(13), tile(11), tile(7), 48]],
+    solid: [[0, tile(11), tile(20), 48]],
     traps: [
-      { t: "spike", x: 0, y: tile(7), w: 128, h: 34, dir: "down" },
-      { t: "spike", x: 192, y: tile(7), w: 96, h: 34, dir: "down" },
-      { t: "spike", x: 352, y: tile(7), w: 96, h: 34, dir: "down" },
-      { t: "spike", x: 512, y: tile(7), w: 128, h: 34, dir: "down" }
+      { t: "spike", x: 150, y: tile(11), w: 30, h: 34, dir: "up" },
+      { t: "spike", x: 240, y: tile(11), w: 30, h: 34, dir: "up" },
+      { t: "spike", x: 366, y: tile(11), w: 30, h: 34, dir: "up" },
+      { t: "spike", x: 486, y: tile(11), w: 30, h: 34, dir: "up" }
     ],
     goal: { x: 600, y: 302, w: 38, h: 50 }
   },
@@ -417,7 +417,7 @@ window.MazeLevels = [
     name: "הקפיצה המושבתת",
     hint: "כאן הקפיצה לא עובדת. שם למטה — כן.",
     world: 6,
-    spawn: [40, 320],
+    spawn: [150, 256],
     solid: [[tile(4), tile(9), 128, 16], [tile(8), tile(7), 160, 16], [tile(13), tile(5), 224, 16]],
     traps: [
       { t: "nojump", x: tile(9), y: 192, w: 64, h: 96 },
@@ -486,24 +486,25 @@ window.MazeLevels = [
     hint: "הקירות מתקרבים. משהו יופיע ביניהם.",
     world: 7,
     spawn: [tile(9), 320],
-    solid: [[0, tile(11), 640, 48], [tile(9), tile(4), 96, 16]],
+    solid: [[0, tile(11), 640, 48], [420, 160, 120, 16]],
     traps: [
-      { t: "chase", x: -120, speed: 1.5, tx: 0 },
-      { t: "chase", x: 760, speed: 1.5, tx: 1e9, side: "right" },
-      { t: "spring", x: tile(9), y: 342, w: 44, h: 10, power: 17, appearAt: 240 }
+      { t: "chase", x: -200, speed: 1.2, tx: 0 },
+      { t: "chase", x: 840, speed: 1.2, tx: 1e9, side: "right" },
+      { t: "spring", x: 300, y: 342, w: 44, h: 10, power: 17, appearAt: 200 }
     ],
-    goal: { x: tile(9) + 10, y: 78, w: 38, h: 50 }
+    goal: { x: 440, y: 110, w: 38, h: 50 }
   },
 
   /* ===== עולם 8 — מפתחות וטריקים פסיכולוגיים ===== */
   {
     name: "המפתח שבורח",
-    hint: "הוא לא רוצה שתיקח אותו.",
+    hint: "כשהוא בורח הוא רץ אחורה — למעלה במדרגות.",
     world: 8,
     spawn: [40, 320],
-    solid: [[0, tile(11), 352, 48], [448, tile(11), 192, 48], [64, 288, 64, 16]],
+    solid: [[0, tile(11), 352, 48], [448, tile(11), 192, 48],
+      [80, tile(10), 64, 32], [160, tile(9), 64, 16]],
     traps: [
-      { t: "key", x: tile(9), y: 276, w: 22, h: 22, fleeX: tile(8), fleeTo: [72, 240] }
+      { t: "key", x: 300, y: 300, w: 22, h: 22, fleeX: 250, fleeTo: [184, 180] }
     ],
     goal: { x: 576, y: 302, w: 38, h: 50, locked: true }
   },
@@ -661,18 +662,19 @@ window.MazeLevels = [
     spawn: [32, 320],
     solid: [[0, tile(11), 96, 48], [tile(8), tile(11), 384, 48]],
     traps: [
-      { t: "fake", x: 96, y: tile(11), w: 160, h: 48, when: "step", delay: 20 },
-      { t: "spike", x: tile(9), y: tile(11), w: 64, h: 26, mode: "bounce", power: 18 },
-      { t: "wall", x: tile(11), y: 0, w: 24, h: 400 }
+      { t: "fake", x: 96, y: tile(11), w: 128, h: 48, when: "step", delay: 20 },
+      { t: "spike", x: 232, y: tile(11), w: 48, h: 26, mode: "bounce", power: 18 },
+      // קיר בגובה 192: אי אפשר לקפוץ מעליו בקפיצה רגילה — רק אחרי שיגור מהקפיץ
+      { t: "wall", x: 336, y: 160, w: 24, h: 192 }
     ],
-    goal: { x: tile(8), y: 302, w: 38, h: 50, flee: { speed: 3.8, dist: 240, maxX: 596, force: "right" } }
+    goal: { x: 520, y: 302, w: 38, h: 50, flee: { speed: 3.8, dist: 240, maxX: 596, force: "right" } }
   },
   {
     name: "המסדרון הבלתי אפשרי",
     hint: "הדלת בסוף היא רק ההתחלה.",
     world: 10,
     spawn: [32, 320],
-    ceil: [0, 0.8, true],
+    ceil: [0, 0.6, true],
     solid: [[0, tile(11), 640, 48]],
     traps: [
       { t: "fake", x: tile(5), y: tile(11), w: 32, h: 48, when: "near", near: 60, delay: 2 },

@@ -77,6 +77,17 @@
   let hintTimer = 0;
   let started = false;
 
+  // ספיד ראן: ריצה על 25 או 50 השלבים הראשונים, עם טיימר שלא נעצר בפסילה
+  let run = null; // { limit, frames, reported }
+
+  function runMs() {
+    return Math.round(run.frames / 60 * 1000);
+  }
+
+  function levelEnd() {
+    return run ? Math.min(run.limit, LEVELS.length) : LEVELS.length;
+  }
+
   // דלתות מסיח שכבר התגלו: המידע נשמר בין פסילות, אחרת הדלת האמיתית
   // הייתה נעלמת בכל מוות ואי אפשר היה לסיים את השלב לעולם.
   const foundDecoys = new Set();
@@ -312,7 +323,8 @@
         deaths: totalDeaths,
         best: bestStage,
         unlocked,
-        win: state === "finished"
+        win: state === "finished",
+        run: run ? { limit: run.limit, ms: runMs(), done: !!run.reported } : null
       }
     }));
   }
@@ -1268,6 +1280,7 @@
   }
 
   function step() {
+    if (run && !run.reported) run.frames++;
     if (state === "play") {
       update();
       return;
@@ -1283,8 +1296,14 @@
     if (state === "clear") {
       stateTimer--;
       if (stateTimer <= 0) {
-        if (levelIndex + 1 >= LEVELS.length) {
+        if (levelIndex + 1 >= levelEnd()) {
           state = "finished";
+          if (run && !run.reported) {
+            run.reported = true;
+            window.dispatchEvent(new CustomEvent("maze:speedrun", {
+              detail: { limit: run.limit, ms: runMs() }
+            }));
+          }
           emit();
         } else {
           loadLevel(levelIndex + 1);
@@ -1369,16 +1388,34 @@
       }
     },
     goto(index) {
+      if (run && !run.reported) run = null;
       loadLevel(index);
     },
     restart() {
       loadLevel(levelIndex);
     },
+    // ספיד ראן: 25 או 50 שלבים מההתחלה, הטיימר ממשיך גם אחרי פסילות
+    speedrun(limit) {
+      const total = LEVELS.length;
+      const size = Number(limit) === 50 ? 50 : 25;
+      run = { limit: Math.min(size, total), frames: 0, reported: false };
+      loadLevel(0);
+      if (!started) {
+        started = true;
+        requestAnimationFrame(loop);
+      }
+      emit();
+    },
+    stopSpeedrun() {
+      run = null;
+      emit();
+    },
     snapshot() {
       return {
         stage: levelIndex + 1, total: LEVELS.length, deaths: totalDeaths,
         best: bestStage, unlocked, state,
-        x: Math.round(player.x), y: Math.round(player.y), frame
+        x: Math.round(player.x), y: Math.round(player.y), frame,
+        run: run ? { limit: run.limit, ms: runMs(), done: !!run.reported } : null
       };
     }
   };
